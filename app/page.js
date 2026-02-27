@@ -11,7 +11,7 @@ function formatTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-const WELCOME_MSG = `Hello, thank you for your order! 🎉\n\nYour order has been received and your item is currently reserved under your name.\n\nTo finalize and confirm your order, we would like to send you a PayPal invoice for secure payment processing. Before we proceed, we just want to confirm — are you comfortable receiving a PayPal invoice to complete your purchase?\n\nPlease reply with a simple Yes or No and we will take it from there right away.`;
+const WELCOME_MSG = `Thank you for your order! 🎉\n\nYour item is reserved under your name.\n\nTo confirm and secure it, we'll send you a safe PayPal invoice for payment.\n\nAre you okay with receiving a PayPal invoice to complete your purchase?\nJust reply Yes or No, and we'll proceed immediately.`;
 
 export default function ChatPage() {
     const [sessionId, setSessionId] = useState(null);
