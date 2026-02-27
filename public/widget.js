@@ -1,33 +1,52 @@
 /**
- * Chat Widget — Inline Embed
+ * Chat Widget — Inline Embed (dynamic-injection compatible)
  *
- * Place this inside your HTML where you want the chat to appear:
+ * USAGE — set window.HFChatConfig before loading this script:
  *
- *   <div id="chat-widget" style="width:100%; height:600px;"></div>
+ *   window.HFChatConfig = {
+ *     chatUrl:       'https://chatapppay.vercel.app',
+ *     target:        '#chat-widget',       // CSS selector of the mount div
+ *     customerName:  'John Doe',
+ *     customerEmail: 'john@example.com',
+ *     orderId:       'ORD-12345',
+ *     total:         '$7.50',
+ *   };
+ *   // Then load this script:
+ *   const s = document.createElement('script');
+ *   s.src = 'https://chatapppay.vercel.app/widget.js';
+ *   document.body.appendChild(s);
  *
- *   <script
- *     src="https://your-chat.vercel.app/widget.js"
- *     data-chat-url="https://your-chat.vercel.app"
+ * OR — plain HTML (synchronous load):
+ *   <script src="https://chatapppay.vercel.app/widget.js"
+ *     data-chat-url="https://chatapppay.vercel.app"
  *     data-target="#chat-widget"
  *     data-customer-name="John Doe"
  *     data-customer-email="john@example.com"
  *     data-order-id="ORD-12345"
- *     data-order-total="$7.50"
- *   ></script>
+ *     data-order-total="$7.50">
+ *   </script>
  */
 
 (function () {
     'use strict';
 
+    // ── Read config: window.HFChatConfig (dynamic) > script data-* (static) ──────
+    const cfg = window.HFChatConfig || {};
+
+    // Fallback to script tag data attributes (synchronous load)
     const scriptTag = document.currentScript ||
         Array.from(document.querySelectorAll('script[data-chat-url]')).pop();
 
-    const CHAT_URL = (scriptTag && scriptTag.getAttribute('data-chat-url')) || window.location.origin;
-    const TARGET = (scriptTag && scriptTag.getAttribute('data-target')) || null;
-    const NAME = (scriptTag && scriptTag.getAttribute('data-customer-name')) || '';
-    const EMAIL = (scriptTag && scriptTag.getAttribute('data-customer-email')) || '';
-    const ORDER_ID = (scriptTag && scriptTag.getAttribute('data-order-id')) || '';
-    const ORDER_TOTAL = (scriptTag && scriptTag.getAttribute('data-order-total')) || '';
+    function attr(key) {
+        return scriptTag ? scriptTag.getAttribute(key) : null;
+    }
+
+    const CHAT_URL = cfg.chatUrl || attr('data-chat-url') || window.location.origin;
+    const TARGET = cfg.target || attr('data-target') || null;
+    const NAME = cfg.customerName || attr('data-customer-name') || '';
+    const EMAIL = cfg.customerEmail || attr('data-customer-email') || '';
+    const ORDER_ID = cfg.orderId || attr('data-order-id') || '';
+    const ORDER_TOTAL = cfg.total || attr('data-order-total') || '';
 
     // Build iframe src with context as query params
     const params = new URLSearchParams();
@@ -43,29 +62,24 @@
     iframe.src = chatSrc;
     iframe.title = 'Live Chat Support';
     iframe.setAttribute('allow', 'clipboard-write');
-    iframe.style.cssText = 'width:100%; height:100%; border:none; display:block;';
+    iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
 
     // Find target container and inject
     const container = TARGET ? document.querySelector(TARGET) : null;
 
     if (container) {
-        // Inline mode — fill the target div exactly
         container.style.overflow = 'hidden';
         container.appendChild(iframe);
     } else {
-        // Fallback — fill the body (full page)
+        // Fallback: full page
         document.body.style.margin = '0';
-        iframe.style.position = 'fixed';
-        iframe.style.inset = '0';
-        iframe.style.zIndex = '99999';
+        iframe.style.cssText += 'position:fixed;inset:0;z-index:99999;';
         document.body.appendChild(iframe);
     }
 
-    // Public API
     window.HFChat = {
-        // Programmatically pass extra context after load
         sendContext: function (data) {
-            iframe.contentWindow.postMessage({ type: 'HF_CONTEXT', ...data }, CHAT_URL);
+            iframe.contentWindow?.postMessage({ type: 'HF_CONTEXT', ...data }, CHAT_URL);
         }
     };
 
