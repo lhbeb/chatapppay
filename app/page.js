@@ -31,12 +31,10 @@ export default function ChatPage() {
         let sid = localStorage.getItem('chat_session_id');
         let savedMessages = localStorage.getItem('chat_messages_' + sid);
         let savedUpdateId = localStorage.getItem('chat_last_update_id_' + sid);
-        let isNew = false;
 
         if (!sid) {
             sid = generateSessionId();
             localStorage.setItem('chat_session_id', sid);
-            isNew = true;
         }
 
         setSessionId(sid);
@@ -51,15 +49,27 @@ export default function ChatPage() {
             } catch { }
         } else {
             // First visit — show welcome message immediately
-            const welcome = {
-                id: 'welcome',
-                role: 'owner',
-                text: WELCOME_MSG,
-                timestamp: Date.now(),
-            };
-            setMessages([welcome]);
+            setMessages([{ id: 'welcome', role: 'owner', text: WELCOME_MSG, timestamp: Date.now() }]);
 
-            // Notify Telegram that a new chat session started
+            // Read context injected by widget.js via URL params
+            const params = new URLSearchParams(window.location.search);
+            const ctxName = params.get('name') || '';
+            const ctxEmail = params.get('email') || '';
+            const ctxOrder = params.get('orderId') || '';
+            const ctxTotal = params.get('total') || '';
+
+            const contextLines = [
+                ctxName && `👤 Name: ${ctxName}`,
+                ctxEmail && `📧 Email: ${ctxEmail}`,
+                ctxOrder && `🧾 Order ID: ${ctxOrder}`,
+                ctxTotal && `💰 Total: ${ctxTotal}`,
+            ].filter(Boolean);
+
+            const notification = contextLines.length > 0
+                ? `🔔 New chat session started\n\n${contextLines.join('\n')}`
+                : '🔔 A new chat session has been initiated.';
+
+            // Notify Telegram
             if (!notifiedRef.current) {
                 notifiedRef.current = true;
                 fetch('/api/send-message', {
@@ -67,8 +77,8 @@ export default function ChatPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         sessionId: sid,
-                        message: '🔔 A new chat session has been initiated.',
-                        username: 'System',
+                        message: notification,
+                        username: ctxName || 'Customer',
                     }),
                 }).catch(() => { });
             }

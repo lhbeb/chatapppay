@@ -1,11 +1,10 @@
 // POST /api/send-message
-// Receives a visitor message and forwards it to Telegram
+// Forwards visitor messages to Telegram with session ID embedded for reply routing
 import { NextResponse } from 'next/server';
 
 const BOT_TOKEN = '8695107065:AAGOpachFMkHiyVnJtvjOkkXjvT1tyW1hOE';
-const CHAT_ID = '-1003612880977'; // Paypalbot supergroup (upgraded when bot became admin)
+const CHAT_ID = '-1003612880977'; // Paypalbot supergroup
 
-// Escape special HTML characters to prevent formatting issues
 function escapeHtml(text) {
     return text
         .replace(/&/g, '&amp;')
@@ -21,11 +20,11 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Missing message or sessionId' }, { status: 400 });
         }
 
-        const displayName = escapeHtml(username || 'Visitor');
+        const displayName = escapeHtml(username || 'Customer');
         const safeMessage = escapeHtml(message);
 
-        // Use a unique marker string so we can reliably filter these out in get-replies
-        const text = `CHATBOT_MSG\n\n💬 <b>Live Chat Message</b>\n👤 <b>From:</b> ${displayName}\n🔑 <b>Session:</b> <code>${sessionId}</code>\n\n${safeMessage}`;
+        // CHATBOT_MSG:{sessionId} MUST be the first line — get-replies uses it to route replies
+        const text = `CHATBOT_MSG:${sessionId}\n\n💬 <b>Live Chat</b> · Session <code>${sessionId}</code>\n👤 <b>From:</b> ${displayName}\n\n${safeMessage}`;
 
         const telegramRes = await fetch(
             `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,

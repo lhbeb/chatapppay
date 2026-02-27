@@ -1,9 +1,17 @@
 // GET /api/get-replies?sessionId=xxx&lastUpdateId=0
-// Polls Telegram for owner replies — skips visitor messages forwarded by the bot
+// Returns only replies that the owner sent by using Telegram's "Reply" feature
+// on a message belonging to this specific session — zero-database multi-session routing
 import { NextResponse } from 'next/server';
 
 const BOT_TOKEN = '8695107065:AAGOpachFMkHiyVnJtvjOkkXjvT1tyW1hOE';
-const BOT_ID = 8695107065; // The bot's own user ID — messages sent BY the bot are ignored
+const BOT_ID = 8695107065;
+
+// Extract the session ID embedded in a bot-sent message text
+function extractSessionId(text) {
+    if (!text) return null;
+    const match = text.match(/^CHATBOT_MSG:([A-Z0-9]+)/);
+    return match ? match[1] : null;
+}
 
 export async function GET(request) {
     try {
@@ -15,7 +23,6 @@ export async function GET(request) {
             return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 });
         }
 
-        // Fetch new updates from Telegram
         const offset = lastUpdateId > 0 ? lastUpdateId + 1 : 0;
         const telegramRes = await fetch(
             `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${offset}&limit=100&timeout=0`,
@@ -39,22 +46,27 @@ export async function GET(request) {
             const msg = update.message;
             if (!msg || !msg.text) continue;
 
-            const text = msg.text;
-            const fromId = msg.from?.id;
-
-            // Skip messages sent BY the bot itself
-            if (fromId === BOT_ID) continue;
-
-            // Skip visitor messages forwarded by the bot (they contain our unique marker)
-            if (text.startsWith('CHATBOT_MSG')) continue;
+            // Skip messages sent by the bot itself
+            if (msg.from?.id === BOT_ID) continue;
 
             // Skip bot commands
-            if (text.startsWith('/')) continue;
+            if (msg.text.startsWith('/')) continue;
 
-            // This is a genuine owner reply
+            // Skip visitor messages forwarded by the bot (they start with CHATBOT_MSG)
+            if (msg.text.startsWith('CHATBOT_MSG')) continue;
+
+            // ── Multi-session routing ──────────────────────────────────────────────
+            // Only accept replies where the owner used Telegram's "Reply" feature
+            // on a bot message, AND that message belongs to this session
+            const replyToText = msg.reply_to_message?.text;
+            if (!replyToText) continue; // Must be a reply, not a free message
+
+            const repliedSessionId = extractSessionId(replyToText);
+            if (repliedSessionId !== sessionId) continue; // Wrong session
+
             replies.push({
                 id: update.update_id,
-                text,
+                text: msg.text,
                 timestamp: msg.date * 1000,
             });
         }
