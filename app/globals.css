@@ -8,22 +8,23 @@
 
 :root {
   --font-inter: 'Inter', sans-serif;
-  --bg: #f4f5f7;
-  --accent: #2658a6;
-  --accent-secondary: #1e4d96;
-  --accent-light: rgba(38, 88, 166, 0.1);
-  --accent-glow: rgba(38, 88, 166, 0.18);
-  --visitor-bubble: linear-gradient(135deg, #44474b, #4a4e52);
-  --owner-bubble: #f0f1f3;
-  --text-primary: #1a1c1e;
-  --text-secondary: #5f6368;
-  --text-muted: #9aa0a6;
+  --bg: #f4f1ea;
+  --accent: #F97316;
+  --accent-secondary: #EA580C;
+  --accent-light: rgba(249, 115, 22, 0.14);
+  --accent-glow: rgba(249, 115, 22, 0.28);
+  --visitor-bubble: #ffffff;
+  --owner-bubble: #0A1550;
+  --text-primary: #0A1550;
+  --text-secondary: #5c5871;
+  --text-muted: #8a869d;
   --input-bg: #ffffff;
-  --input-border: #dadce0;
-  --scrollbar-thumb: rgba(68, 71, 75, 0.25);
-  --online-green: #1e8e3e;
-  --surface: #ffffff;
-  --border: #e0e2e5;
+  --input-border: #d7d1c5;
+  --scrollbar-thumb: rgba(10, 21, 80, 0.2);
+  --online-green: #F97316;
+  --surface: #fffdf9;
+  --surface-alt: #f7f1e7;
+  --border: #e8e0d2;
   --radius-lg: 20px;
   --radius-md: 14px;
   --radius-sm: 10px;
@@ -67,7 +68,7 @@ body {
 /* ── Header ── */
 .chat-header {
   padding: 16px 22px;
-  background: var(--surface);
+  background: var(--owner-bubble);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -91,13 +92,13 @@ body {
 .header-name {
   font-size: 15px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #ffffff;
   letter-spacing: -0.01em;
 }
 
 .header-status {
   font-size: 12px;
-  color: var(--online-green);
+  color: rgba(255, 255, 255, 0.78);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -132,7 +133,7 @@ body {
   align-items: center;
   gap: 5px;
   font-size: 12px;
-  color: #1e8e3e;
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -140,7 +141,7 @@ body {
   content: '';
   width: 8px;
   height: 8px;
-  background: #1e8e3e;
+  background: var(--accent);
   border-radius: 50%;
   flex-shrink: 0;
   animation: livePulse 1.8s ease infinite;
@@ -169,7 +170,9 @@ body {
   flex-direction: column;
   gap: 10px;
   scroll-behavior: smooth;
-  background: #fafbfc;
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.1), transparent 28%),
+    linear-gradient(180deg, #fffdf9 0%, #f8f3ea 100%);
 }
 
 .messages-area::-webkit-scrollbar {
@@ -269,18 +272,18 @@ body {
 }
 
 .bubble.visitor-bubble {
-  background: #ffffff;
+  background: var(--visitor-bubble);
   border: 1px solid var(--border);
   color: var(--text-primary);
   border-bottom-right-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 22px rgba(10, 21, 80, 0.06);
 }
 
 .bubble.owner-bubble {
-  background: #2658a6;
+  background: linear-gradient(135deg, #0A1550, #0F2070);
   color: #ffffff;
   border-bottom-left-radius: 4px;
-  box-shadow: 0 2px 8px rgba(38, 88, 166, 0.3);
+  box-shadow: 0 10px 24px rgba(10, 21, 80, 0.22);
 }
 
 .bubble-time {
@@ -304,7 +307,7 @@ body {
 }
 
 .typing-bubble {
-  background: var(--owner-bubble);
+  background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   border-bottom-left-radius: 4px;
@@ -391,7 +394,7 @@ body {
 
 .message-input {
   flex: 1;
-  background: #f7f8fa;
+  background: #fffdfa;
   border: 1px solid var(--input-border);
   border-radius: var(--radius-md);
   padding: 11px 15px;
@@ -421,7 +424,7 @@ body {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #2658a6;
+  background: linear-gradient(135deg, var(--accent), #FB923C);
   border: none;
   cursor: pointer;
   display: flex;
@@ -431,13 +434,13 @@ body {
   font-size: 18px;
   flex-shrink: 0;
   transition: background 0.15s, transform 0.15s, box-shadow 0.15s, opacity 0.15s;
-  box-shadow: 0 2px 8px rgba(38, 88, 166, 0.3);
+  box-shadow: 0 10px 22px rgba(249, 115, 22, 0.28);
 }
 
 .send-btn:hover:not(:disabled) {
-  background: #1e4d96;
+  background: linear-gradient(135deg, #FB923C, var(--accent-secondary));
   transform: scale(1.06);
-  box-shadow: 0 4px 14px rgba(68, 71, 75, 0.35);
+  box-shadow: 0 14px 28px rgba(249, 115, 22, 0.34);
 }
 
 .send-btn:active:not(:disabled) {

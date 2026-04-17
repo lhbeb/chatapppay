@@ -186,13 +186,13 @@ export default function ChatPage() {
                 {/* Header */}
                 <div className="chat-header">
                     <div className="header-avatar">
-                        <Image src="/abby.jpg" alt="Abby" width={44} height={44} style={{ borderRadius: '50%', objectFit: 'cover', width: '44px', height: '44px' }} />
+                        <Image src="/abby.jpg" alt="Eliza M." width={44} height={44} style={{ borderRadius: '50%', objectFit: 'cover', width: '44px', height: '44px' }} />
                     </div>
                     <div className="header-info">
-                        <div className="header-name">Abby</div>
+                        <div className="header-name">Eliza M.</div>
                         <div className="header-status">
                             <span className="status-dot" />
-                            Customer Support Agent
+                            DeelDepot support agent
                         </div>
                     </div>
                     <div className="header-badge">Live</div>
@@ -204,7 +204,7 @@ export default function ChatPage() {
                         <div key={msg.id} className={`message-row ${msg.role}`}>
                             {msg.role === 'owner' && (
                                 <div className="owner-avatar-sm">
-                                    <Image src="/abby.jpg" alt="Abby" width={30} height={30} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} />
+                                    <Image src="/abby.jpg" alt="Eliza M." width={30} height={30} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} />
                                 </div>
                             )}
                             <div className="msg-wrapper">
@@ -219,7 +219,7 @@ export default function ChatPage() {
                     {isTyping && (
                         <div className="typing-row">
                             <div className="owner-avatar-sm">
-                                <Image src="/abby.jpg" alt="Abby" width={30} height={30} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} />
+                                <Image src="/abby.jpg" alt="Eliza M." width={30} height={30} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} />
                             </div>
                             <div className="typing-bubble">
                                 <span className="typing-dot" />
