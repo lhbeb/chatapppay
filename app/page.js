@@ -11,7 +11,7 @@ function formatTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-const WELCOME_MSG = `Thank you for your order! 🎉\n\nYour item is reserved under your name.\n\nTo confirm and secure it, we'll send you a safe PayPal invoice for payment.\n\nPlease reply with your PayPal email address so we can send the invoice and proceed immediately.`;
+const WELCOME_MSG = `Thank you for your order! 🎉\n\nWe've set aside your item and will send a PayPal invoice shortly.\nThe invoice will include the item details, total price, and our business information for your review.\n\nYou can complete the payment securely through PayPal once you receive it.\nIf you have any questions before payment, feel free to ask.`;
 
 export default function ChatPage() {
     const [sessionId, setSessionId] = useState(null);
@@ -45,7 +45,10 @@ export default function ChatPage() {
 
         if (savedMessages) {
             try {
-                setMessages(JSON.parse(savedMessages));
+                let parsed = JSON.parse(savedMessages);
+                // Force update the welcome message text to THE LATEST version
+                parsed = parsed.map(m => m.id === 'welcome' ? { ...m, text: WELCOME_MSG } : m);
+                setMessages(parsed);
             } catch { }
         } else {
             // First visit — show welcome message immediately

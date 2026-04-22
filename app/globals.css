@@ -366,10 +366,11 @@ body {
   border-radius: var(--radius-pill);
   padding: 10px 16px;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: 16px !important;
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
+  touch-action: manipulation;
 }
 
 .name-ask input:focus {
@@ -399,7 +400,7 @@ body {
   border-radius: var(--radius-md);
   padding: 11px 15px;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: 16px !important;
   font-family: inherit;
   resize: none;
   outline: none;
@@ -408,6 +409,7 @@ body {
   line-height: 1.5;
   transition: border-color 0.2s, box-shadow 0.2s;
   overflow-y: auto;
+  touch-action: manipulation;
 }
 
 .message-input:focus {
