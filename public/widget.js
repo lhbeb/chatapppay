@@ -4,12 +4,13 @@
  * USAGE — set window.HFChatConfig before loading this script:
  *
  *   window.HFChatConfig = {
- *     chatUrl:       'https://chatapppay.vercel.app',
- *     target:        '#chat-widget',       // CSS selector of the mount div
- *     customerName:  'John Doe',
- *     customerEmail: 'john@example.com',
- *     orderId:       'ORD-12345',
- *     total:         '$7.50',
+ *     chatUrl:        'https://chatapppay.vercel.app',
+ *     target:         '#chat-widget',       // CSS selector of the mount div
+ *     customerName:   'John Doe',
+ *     customerEmail:  'john@example.com',
+ *     orderId:        'ORD-12345',
+ *     total:          '$7.50',
+ *     welcomeMessage: 'Thank you for your order! ...',  // optional override
  *   };
  *   // Then load this script:
  *   const s = document.createElement('script');
@@ -23,7 +24,8 @@
  *     data-customer-name="John Doe"
  *     data-customer-email="john@example.com"
  *     data-order-id="ORD-12345"
- *     data-order-total="$7.50">
+ *     data-order-total="$7.50"
+ *     data-welcome-message="Thank you for your order! ...">
  *   </script>
  */
 
@@ -47,6 +49,7 @@
     const EMAIL = cfg.customerEmail || attr('data-customer-email') || '';
     const ORDER_ID = cfg.orderId || attr('data-order-id') || '';
     const ORDER_TOTAL = cfg.total || attr('data-order-total') || '';
+    const WELCOME_MSG = cfg.welcomeMessage || attr('data-welcome-message') || '';
 
     // Build iframe src with context as query params
     const params = new URLSearchParams();
@@ -54,6 +57,7 @@
     if (EMAIL) params.set('email', EMAIL);
     if (ORDER_ID) params.set('orderId', ORDER_ID);
     if (ORDER_TOTAL) params.set('total', ORDER_TOTAL);
+    if (WELCOME_MSG) params.set('welcomeMessage', WELCOME_MSG);
 
     const chatSrc = CHAT_URL + (params.toString() ? '?' + params.toString() : '');
 

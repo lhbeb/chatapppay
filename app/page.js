@@ -11,7 +11,8 @@ function formatTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-const WELCOME_MSG = `Thank you for your order! 🎉\n\nWe've set aside your item and will send a PayPal invoice shortly.\nThe invoice will include the item details, total price, and our business information for your review.\n\nYou can complete the payment securely through PayPal once you receive it.\nIf you have any questions before payment, feel free to ask.`;
+const WELCOME_MSG_1 = `Thank you for your order! 🎉\nWe've reserved your item and are preparing your PayPal invoice now.`;
+const WELCOME_MSG_2 = `Before we send it, just let us know if you're ready to proceed with the payment.\nWe'll include all order details in the invoice for your review.`;
 
 export default function ChatPage() {
     const [sessionId, setSessionId] = useState(null);
@@ -43,23 +44,50 @@ export default function ChatPage() {
             setLastUpdateId(parseInt(savedUpdateId, 10));
         }
 
+        // Read context injected by widget.js via URL params (needed in both paths)
+        const urlParams = new URLSearchParams(window.location.search);
+
         if (savedMessages) {
             try {
                 let parsed = JSON.parse(savedMessages);
-                // Force update the welcome message text to THE LATEST version
-                parsed = parsed.map(m => m.id === 'welcome' ? { ...m, text: WELCOME_MSG } : m);
+                // Force-update both welcome messages to the latest text
+                parsed = parsed.map(m => {
+                    if (m.id === 'welcome' || m.id === 'welcome-1') return { ...m, id: 'welcome-1', text: WELCOME_MSG_1 };
+                    if (m.id === 'welcome-2') return { ...m, text: WELCOME_MSG_2 };
+                    return m;
+                });
+                // Add welcome-2 if missing (e.g. old single-message sessions)
+                if (!parsed.find(m => m.id === 'welcome-2')) {
+                    const w1 = parsed.find(m => m.id === 'welcome-1');
+                    const insertTs = w1 ? w1.timestamp + 3000 : Date.now();
+                    parsed.splice(
+                        parsed.findIndex(m => m.id === 'welcome-1') + 1,
+                        0,
+                        { id: 'welcome-2', role: 'owner', text: WELCOME_MSG_2, timestamp: insertTs }
+                    );
+                }
                 setMessages(parsed);
             } catch { }
         } else {
-            // First visit — show welcome message immediately
-            setMessages([{ id: 'welcome', role: 'owner', text: WELCOME_MSG, timestamp: Date.now() }]);
+            // First visit — show first welcome message immediately
+            const now = Date.now();
+            setMessages([{ id: 'welcome-1', role: 'owner', text: WELCOME_MSG_1, timestamp: now }]);
 
-            // Read context injected by widget.js via URL params
-            const params = new URLSearchParams(window.location.search);
-            const ctxName = params.get('name') || '';
-            const ctxEmail = params.get('email') || '';
-            const ctxOrder = params.get('orderId') || '';
-            const ctxTotal = params.get('total') || '';
+            // Show typing indicator then deliver second message after 3 seconds
+            setIsTyping(true);
+            setTimeout(() => {
+                setIsTyping(false);
+                setMessages(prev => [
+                    ...prev,
+                    { id: 'welcome-2', role: 'owner', text: WELCOME_MSG_2, timestamp: Date.now() },
+                ]);
+            }, 3000);
+
+            // Read order context from URL params
+            const ctxName = urlParams.get('name') || '';
+            const ctxEmail = urlParams.get('email') || '';
+            const ctxOrder = urlParams.get('orderId') || '';
+            const ctxTotal = urlParams.get('total') || '';
 
             const contextLines = [
                 ctxName && `👤 Name: ${ctxName}`,
