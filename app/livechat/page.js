@@ -110,7 +110,7 @@ function LiveChatContent() {
             setMessages([{ 
                 id: 'welcome', 
                 role: 'owner', 
-                text: `Hi there! 👋 I'm ${agent}, your support agent. How can I help you today?`, 
+                text: `Hi there! 👋 I'm ${agent}. You are chatting with a real person, not an AI responder! How can I help you today?`, 
                 timestamp: Date.now() 
             }]);
         }
@@ -160,7 +160,7 @@ function LiveChatContent() {
             {
                 id: 'agent-join',
                 role: 'owner',
-                text: `✅ ${agentName} has joined the chat. You're now connected to a live support agent!`,
+                text: `✅ ${agentName} has joined the chat. You're now connected with a real support agent (not an AI responder)!`,
                 timestamp: Date.now(),
             }
         ]);
@@ -543,7 +543,7 @@ function LiveChatContent() {
                 </div>
                 <div style={styles.formContainer}>
                     <h2 style={{marginTop: 0, marginBottom: '8px', fontSize: '1.25rem', color: '#111827'}}>Welcome!</h2>
-                    <p style={{marginBottom: '24px', color: '#4b5563', fontSize: '0.95rem'}}>Please enter your email address to start chatting with our support team.</p>
+                    <p style={{marginBottom: '24px', color: '#4b5563', fontSize: '0.95rem', lineHeight: '1.4'}}>Please enter your email address to start chatting with a real person from our support team (not an AI responder).</p>
                     <form onSubmit={handleEmailSubmit}>
                         <input
                             type="email"
