@@ -87,7 +87,17 @@ function PayChatContent() {
 
     useEffect(() => {
         if (sessionId && messages.length > 0) {
-            localStorage.setItem('paychat_messages_' + sessionId, JSON.stringify(messages));
+            try {
+                const storableMessages = messages.map(msg => {
+                    if (msg.imageUrl && msg.imageUrl.length > 50000) {
+                        return { ...msg, imageUrl: null, text: msg.text ? msg.text : '[Image Attached]' };
+                    }
+                    return msg;
+                });
+                localStorage.setItem('paychat_messages_' + sessionId, JSON.stringify(storableMessages));
+            } catch (e) {
+                console.error('Failed to save paychat messages', e);
+            }
         }
     }, [messages, sessionId]);
 
