@@ -105,14 +105,33 @@ function LiveChatContent() {
             try {
                 setMessages(JSON.parse(savedMessages));
             } catch (e) { }
-        } else {
-            // Initial welcome message from the agent
-            setMessages([{ 
-                id: 'welcome', 
-                role: 'owner', 
-                text: `Hi there! 👋 I'm ${agent}. You are chatting with a real person, not an AI responder! How can I help you today?`, 
-                timestamp: Date.now() 
-            }]);
+        } else if (storedEmail) {
+            // First visit with saved email — deliver messages sequentially
+            setTimeout(() => {
+                setMessages([
+                    {
+                        id: 'agent-join',
+                        role: 'owner',
+                        text: `✅ ${agent} has joined the chat. You're now connected with a real support agent (not an AI responder)!`,
+                        timestamp: Date.now(),
+                    }
+                ]);
+                setTimeout(() => {
+                    setAgentTyping(true);
+                    setTimeout(() => {
+                        setAgentTyping(false);
+                        setMessages(prev => [
+                            ...prev,
+                            {
+                                id: 'welcome',
+                                role: 'owner',
+                                text: `Hi there! 👋 I'm ${agent}. You are chatting with a real person, not an AI responder! How can I help you today?`,
+                                timestamp: Date.now(),
+                            }
+                        ]);
+                    }, 2800);
+                }, 900);
+            }, 500);
         }
 
         // Fire a one-time "widget opened" notification to Telegram
@@ -154,16 +173,36 @@ function LiveChatContent() {
         localStorage.setItem('livechat_email', trimmedEmail);
         setIsEmailSubmitted(true);
 
-        // Add agent join message in the chat
-        setMessages(prev => [
-            ...prev,
-            {
-                id: 'agent-join',
-                role: 'owner',
-                text: `✅ ${agentName} has joined the chat. You're now connected with a real support agent (not an AI responder)!`,
-                timestamp: Date.now(),
-            }
-        ]);
+        // Deliver messages one by one with typing delay to feel like a real human agent
+        if (messages.length === 0) {
+            setTimeout(() => {
+                setMessages([
+                    {
+                        id: 'agent-join',
+                        role: 'owner',
+                        text: `✅ ${agentName} has joined the chat. You're now connected with a real support agent (not an AI responder)!`,
+                        timestamp: Date.now(),
+                    }
+                ]);
+
+                setTimeout(() => {
+                    setAgentTyping(true);
+
+                    setTimeout(() => {
+                        setAgentTyping(false);
+                        setMessages(prev => [
+                            ...prev,
+                            {
+                                id: 'welcome',
+                                role: 'owner',
+                                text: `Hi there! 👋 I'm ${agentName}. You are chatting with a real person, not an AI responder! How can I help you today?`,
+                                timestamp: Date.now(),
+                            }
+                        ]);
+                    }, 2800);
+                }, 900);
+            }, 500);
+        }
 
         // Notify Telegram with agent name
         fetch('/api/livechat/send-message', {
