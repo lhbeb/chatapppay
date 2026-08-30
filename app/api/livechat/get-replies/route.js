@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const BOT_TOKEN = '8852380612:AAEeSSVmxFNfvAJUu73R4Wz-YJZOfRMaBD0';
 const BOT_ID = 8852380612;
 const CHAT_ID = '-5493972721';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 const AGENT_NAMES = [
@@ -28,7 +28,7 @@ function formatTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function LiveChatPage() {
+function LiveChatContent() {
     const searchParams = useSearchParams();
     const themeColor = searchParams.get('color') || '#007bff';
     const siteUrl = searchParams.get('siteUrl') || '';
@@ -655,5 +655,13 @@ export default function LiveChatPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function LiveChatPage() {
+    return (
+        <Suspense fallback={<div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui' }}>Loading...</div>}>
+            <LiveChatContent />
+        </Suspense>
     );
 }

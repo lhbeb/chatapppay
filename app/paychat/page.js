@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 function generateSessionId() {
@@ -11,7 +11,7 @@ function formatTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function PayChatPage() {
+function PayChatContent() {
     const searchParams = useSearchParams();
     const themeColor = searchParams.get('color') || '#0070ba'; // PayPal blue default
     const siteUrl    = searchParams.get('siteUrl') || '';
@@ -285,5 +285,13 @@ export default function PayChatPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function PayChatPage() {
+    return (
+        <Suspense fallback={<div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui' }}>Loading...</div>}>
+            <PayChatContent />
+        </Suspense>
     );
 }

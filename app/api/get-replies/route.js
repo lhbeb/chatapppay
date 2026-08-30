@@ -10,6 +10,8 @@
 
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const BOT_TOKEN = '8695107065:AAGOpachFMkHiyVnJtvjOkkXjvT1tyW1hOE';
 const BOT_ID = 8695107065;
 

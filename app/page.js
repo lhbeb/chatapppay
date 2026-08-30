@@ -21,9 +21,12 @@ export default function ChatPage() {
     const [sending, setSending] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const [lastUpdateId, setLastUpdateId] = useState(0);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
 
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
+    const fileInputRef = useRef(null);
     const pollingRef = useRef(null);
     const notifiedRef = useRef(false);
 
@@ -168,24 +171,59 @@ export default function ChatPage() {
         return () => clearInterval(pollingRef.current);
     }, [sessionId, pollReplies]);
 
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Image must be less than 5MB');
+                return;
+            }
+            setSelectedImage(file);
+            const reader = new FileReader();
+            reader.onload = (ev) => setImagePreview(ev.target.result);
+            reader.readAsDataURL(file);
+        }
+        e.target.value = '';
+    };
+
+    const clearImage = () => {
+        setSelectedImage(null);
+        setImagePreview(null);
+    };
+
     // ── Send message ─────────────────────────────────────────────────────────────
     const handleSend = async () => {
         const text = inputValue.trim();
-        if (!text || sending) return;
+        if ((!text && !selectedImage) || sending) return;
 
         setSending(true);
         setInputValue('');
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-        const newMsg = { id: 'v-' + Date.now(), role: 'visitor', text, timestamp: Date.now() };
+        const currentImageFile = selectedImage;
+        const currentImagePreview = imagePreview;
+        clearImage();
+
+        const newMsg = { 
+            id: 'v-' + Date.now(), 
+            role: 'visitor', 
+            text, 
+            imageUrl: currentImagePreview,
+            timestamp: Date.now() 
+        };
         setMessages(prev => [...prev, newMsg]);
         setIsTyping(true);
 
         try {
+            const formData = new FormData();
+            formData.append('sessionId', sessionId);
+            formData.append('username', 'Customer');
+            if (text) formData.append('message', text);
+            if (currentImageFile) formData.append('image', currentImageFile);
+
             const res = await fetch('/api/send-message', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId, message: text, username: 'Customer' }),
+                body: formData,
             });
             if (!res.ok) setIsTyping(false);
         } catch {
@@ -240,6 +278,9 @@ export default function ChatPage() {
                             )}
                             <div className="msg-wrapper">
                                 <div className={`bubble ${msg.role === 'visitor' ? 'visitor-bubble' : 'owner-bubble'}`}>
+                                    {msg.imageUrl && (
+                                        <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} />
+                                    )}
                                     {msg.text}
                                 </div>
                                 <span className="bubble-time">{formatTime(msg.timestamp)}</span>
@@ -264,25 +305,53 @@ export default function ChatPage() {
                 </div>
 
                 {/* Message input */}
-                <div className="input-area">
-                    <textarea
-                        ref={textareaRef}
-                        className="message-input"
-                        placeholder="Type a message…"
-                        value={inputValue}
-                        onChange={handleTextareaChange}
-                        onKeyDown={handleKeyDown}
-                        rows={1}
-                        disabled={sending}
-                    />
-                    <button
-                        className="send-btn"
-                        onClick={handleSend}
-                        disabled={!inputValue.trim() || sending}
-                        title="Send message"
-                    >
-                        {sending ? '…' : '↑'}
-                    </button>
+                <div className="input-area" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                    {imagePreview && (
+                        <div style={{ position: 'relative', display: 'inline-block', marginBottom: '8px', alignSelf: 'flex-start' }}>
+                            <img src={imagePreview} alt="preview" style={{ height: '60px', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                            <button 
+                                onClick={clearImage}
+                                style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                ×
+                            </button>
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
+                        <button 
+                            onClick={() => fileInputRef.current?.click()} 
+                            disabled={sending} 
+                            title="Attach image"
+                            style={{ backgroundColor: 'transparent', color: '#6b7280', border: 'none', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', transition: 'background-color 0.2s', height: '44px', width: '44px', flexShrink: 0 }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                            </svg>
+                        </button>
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            ref={fileInputRef} 
+                            style={{ display: 'none' }} 
+                            onChange={handleFileSelect} 
+                        />
+                        <textarea
+                            ref={textareaRef}
+                            className="message-input"
+                            placeholder="Type a message…"
+                            value={inputValue}
+                            onChange={handleTextareaChange}
+                            onKeyDown={handleKeyDown}
+                            rows={1}
+                            disabled={sending}
+                        />
+                        <button
+                            className="send-btn"
+                            onClick={handleSend}
+                            disabled={(!inputValue.trim() && !selectedImage) || sending}
+                            title="Send message"
+                        >
+                            {sending ? '…' : '↑'}
+                        </button>
+                    </div>
                 </div>
 
             </div>
