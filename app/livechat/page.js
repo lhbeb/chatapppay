@@ -3,21 +3,33 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-const AGENT_NAMES = [
-    'Sophie', 'Emma', 'Olivia', 'Ava', 'Isabella',
-    'Mia', 'Charlotte', 'Amelia', 'Harper', 'Evelyn',
-    'Luna', 'Camila', 'Aria', 'Scarlett', 'Victoria',
-    'Layla', 'Riley', 'Zoey', 'Nora', 'Lily'
+const AGENTS = [
+    { name: 'Sophie', image: '/widget%20profile%20pics/img1.jpg' },
+    { name: 'Emma', image: '/widget%20profile%20pics/img2.jpg' },
+    { name: 'Olivia', image: '/widget%20profile%20pics/img3.jpg' },
+    { name: 'Ava', image: '/widget%20profile%20pics/img4.jpg' },
+    { name: 'Isabella', image: '/widget%20profile%20pics/img5.jpg' }
 ];
 
 function getOrCreateAgentName(sessionId) {
     const key = 'livechat_agent_' + sessionId;
-    let name = localStorage.getItem(key);
-    if (!name) {
-        name = AGENT_NAMES[Math.floor(Math.random() * AGENT_NAMES.length)];
-        localStorage.setItem(key, name);
+    let data = localStorage.getItem(key);
+    if (!data) {
+        const agent = AGENTS[Math.floor(Math.random() * AGENTS.length)];
+        data = JSON.stringify(agent);
+        localStorage.setItem(key, data);
+        return agent;
     }
-    return name;
+    try {
+        const parsed = JSON.parse(data);
+        if (parsed && parsed.name && parsed.image) return parsed;
+        throw new Error("Invalid");
+    } catch {
+        // Migration: check if old string key exists
+        const agent = AGENTS.find(a => a.name === data) || AGENTS[0];
+        localStorage.setItem(key, JSON.stringify(agent));
+        return agent;
+    }
 }
 
 function generateSessionId() {
@@ -47,6 +59,7 @@ function LiveChatContent() {
     const [email, setEmail] = useState('');
     const [isEmailSubmitted, setIsEmailSubmitted] = useState(false);
     const [agentName, setAgentName] = useState('Support');
+    const [agentImage, setAgentImage] = useState(null);
     const [agentTyping, setAgentTyping]       = useState(false);
     const [agentTypingFading, setAgentTypingFading] = useState(false);
     
@@ -95,7 +108,8 @@ function LiveChatContent() {
 
         // Pick or restore agent name for this session
         const agent = getOrCreateAgentName(sid);
-        setAgentName(agent);
+        setAgentName(agent.name);
+        setAgentImage(agent.image);
 
         if (savedUpdateId) {
             setLastUpdateId(parseInt(savedUpdateId, 10));
@@ -179,8 +193,8 @@ function LiveChatContent() {
                 setMessages([
                     {
                         id: 'agent-join',
-                        role: 'owner',
-                        text: `✅ ${agentName} has joined the chat. You're now connected with a real support agent (not an AI responder)!`,
+                        role: 'system',
+                        text: `✅ ${agentName} has joined the chat.`,
                         timestamp: Date.now(),
                     }
                 ]);
@@ -572,7 +586,7 @@ function LiveChatContent() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <div style={styles.agentAvatar}>{agentName.charAt(0)}</div>
+                    <div style={styles.agentAvatar}>{agentImage ? <img src={agentImage} alt={agentName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : agentName.charAt(0)}</div>
                     <div style={styles.agentInfo}>
                         <div style={styles.agentName}>{agentName}</div>
                         <div style={styles.agentStatus}>
@@ -604,7 +618,7 @@ function LiveChatContent() {
     return (
         <div style={styles.container}>
             <div style={styles.header}>
-                <div style={styles.agentAvatar}>{agentName.charAt(0)}</div>
+                <div style={styles.agentAvatar}>{agentImage ? <img src={agentImage} alt={agentName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : agentName.charAt(0)}</div>
                 <div style={styles.agentInfo}>
                     <div style={styles.agentName}>{agentName}</div>
                     <div style={styles.agentStatus}>
@@ -614,25 +628,33 @@ function LiveChatContent() {
                 </div>
             </div>
             <div style={styles.messagesArea}>
-                {messages.map((msg) => (
-                    <div key={msg.id} style={{ ...styles.messageRow, ...(msg.role === 'visitor' ? styles.visitorRow : styles.ownerRow) }}>
-                        {msg.role === 'owner' && (
-                            <div style={styles.msgAvatarSm}>{agentName.charAt(0)}</div>
-                        )}
-                        <div style={styles.msgGroup}>
-                            <div style={{ ...styles.bubble, ...(msg.role === 'visitor' ? styles.visitorBubble : styles.ownerBubble) }}>
-                                {msg.imageUrl && (
-                                    <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} />
-                                )}
+                {messages.map((msg) => {
+                    if (msg.role === 'system') {
+                        return (
+                            <div key={msg.id} style={{ textAlign: 'center', margin: '16px 0', fontSize: '0.85rem', color: '#6b7280', padding: '0 16px' }}>
                                 {msg.text}
                             </div>
-                            <span style={{ ...styles.time, textAlign: msg.role === 'visitor' ? 'right' : 'left' }}>
-                                {formatTime(msg.timestamp)}
-                            </span>
+                        );
+                    }
+                    return (
+                        <div key={msg.id} style={{ ...styles.messageRow, ...(msg.role === 'visitor' ? styles.visitorRow : styles.ownerRow) }}>
+                            {msg.role === 'owner' && (
+                                <div style={styles.msgAvatarSm}>{agentImage ? <img src={agentImage} alt={agentName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : agentName.charAt(0)}</div>
+                            )}
+                            <div style={styles.msgGroup}>
+                                <div style={{ ...styles.bubble, ...(msg.role === 'visitor' ? styles.visitorBubble : styles.ownerBubble) }}>
+                                    {msg.imageUrl && (
+                                        <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} />
+                                    )}
+                                    {msg.text && <div>{msg.text}</div>}
+                                </div>
+                                <span style={{ ...styles.time, textAlign: msg.role === 'visitor' ? 'right' : 'left' }}>
+                                    {formatTime(msg.timestamp)}
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                ))}
-
+                    );
+                })}
                 {agentTyping && (
                     <div style={{
                         ...styles.messageRow,
@@ -641,7 +663,7 @@ function LiveChatContent() {
                         transform: agentTypingFading ? 'translateY(10px) scale(0.95)' : 'translateY(0) scale(1)',
                         transition: 'opacity 0.4s ease, transform 0.4s ease',
                     }}>
-                        <div style={styles.msgAvatarSm}>{agentName.charAt(0)}</div>
+                        <div style={styles.msgAvatarSm}>{agentImage ? <img src={agentImage} alt={agentName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : agentName.charAt(0)}</div>
                         <div style={{ ...styles.bubble, ...styles.ownerBubble, display: 'flex', gap: '4px', alignItems: 'center', padding: '10px 14px' }}>
                             <span className="lc-dot"/>
                             <span className="lc-dot"/>
