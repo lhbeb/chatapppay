@@ -1,0 +1,569 @@
+'use client';
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+const AGENT_NAMES = [
+    'Sophie', 'Emma', 'Olivia', 'Ava', 'Isabella',
+    'Mia', 'Charlotte', 'Amelia', 'Harper', 'Evelyn',
+    'Luna', 'Camila', 'Aria', 'Scarlett', 'Victoria',
+    'Layla', 'Riley', 'Zoey', 'Nora', 'Lily'
+];
+
+function getOrCreateAgentName(sessionId) {
+    const key = 'livechat_agent_' + sessionId;
+    let name = localStorage.getItem(key);
+    if (!name) {
+        name = AGENT_NAMES[Math.floor(Math.random() * AGENT_NAMES.length)];
+        localStorage.setItem(key, name);
+    }
+    return name;
+}
+
+function generateSessionId() {
+    return Math.random().toString(36).slice(2, 9).toUpperCase();
+}
+
+function formatTime(ts) {
+    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+export default function LiveChatPage() {
+    const searchParams = useSearchParams();
+    const themeColor = searchParams.get('color') || '#007bff';
+    const siteUrl = searchParams.get('siteUrl') || '';
+
+    // Extract clean domain name from siteUrl for display
+    let displayDomain = 'Live Support';
+    try {
+        if (siteUrl) {
+            const hostname = new URL(decodeURIComponent(siteUrl)).hostname;
+            displayDomain = `${hostname} Live Support`;
+        }
+    } catch (e) {
+        displayDomain = 'Live Support';
+    }
+
+    const [email, setEmail] = useState('');
+    const [isEmailSubmitted, setIsEmailSubmitted] = useState(false);
+    const [agentName, setAgentName] = useState('Support');
+    const [agentTyping, setAgentTyping]       = useState(false);
+    const [agentTypingFading, setAgentTypingFading] = useState(false);
+    
+    const [sessionId, setSessionId] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [inputValue, setInputValue] = useState('');
+    const [sending, setSending] = useState(false);
+    const [lastUpdateId, setLastUpdateId] = useState(0);
+
+    const messagesEndRef  = useRef(null);
+    const pollingRef      = useRef(null);
+    const agentTypingTimerRef = useRef(null);
+    const userTypingTimerRef  = useRef(null);
+    const fadingTimerRef      = useRef(null);
+
+    // Gracefully fade out the typing indicator instead of cutting it immediately
+    const fadeOutTyping = useCallback(() => {
+        clearTimeout(fadingTimerRef.current);
+        setAgentTypingFading(true);
+        fadingTimerRef.current = setTimeout(() => {
+            setAgentTyping(false);
+            setAgentTypingFading(false);
+        }, 450);
+    }, []);
+    
+    // Initialize session and email from local storage
+    useEffect(() => {
+        const storedEmail = localStorage.getItem('livechat_email');
+        if (storedEmail) {
+            setEmail(storedEmail);
+            setIsEmailSubmitted(true);
+        }
+
+        let sid = localStorage.getItem('livechat_session_id');
+        let savedMessages = localStorage.getItem('livechat_messages_' + sid);
+        let savedUpdateId = localStorage.getItem('livechat_last_update_id_' + sid);
+
+        if (!sid) {
+            sid = generateSessionId();
+            localStorage.setItem('livechat_session_id', sid);
+        }
+        setSessionId(sid);
+
+        // Pick or restore agent name for this session
+        const agent = getOrCreateAgentName(sid);
+        setAgentName(agent);
+
+        if (savedUpdateId) {
+            setLastUpdateId(parseInt(savedUpdateId, 10));
+        }
+
+        if (savedMessages) {
+            try {
+                setMessages(JSON.parse(savedMessages));
+            } catch (e) { }
+        } else {
+            // Initial welcome message from the agent
+            setMessages([{ 
+                id: 'welcome', 
+                role: 'owner', 
+                text: `Hi there! 👋 I'm ${agent}, your support agent. How can I help you today?`, 
+                timestamp: Date.now() 
+            }]);
+        }
+
+        // Fire a one-time "widget opened" notification to Telegram
+        // Only fires once per session (tracked in localStorage)
+        const notifiedKey = 'livechat_opened_' + sid;
+        if (!localStorage.getItem(notifiedKey)) {
+            localStorage.setItem(notifiedKey, '1');
+            fetch('/api/livechat/send-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: sid,
+                    message: '👁️ Widget Opened',
+                    email: null,
+                    siteUrl,
+                    isWidgetOpen: true,
+                }),
+            }).catch(() => {});
+        }
+    }, []);
+
+    // Scroll to bottom
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, agentTyping]);
+
+    // Persist messages
+    useEffect(() => {
+        if (sessionId && messages.length > 0) {
+            localStorage.setItem('livechat_messages_' + sessionId, JSON.stringify(messages));
+        }
+    }, [messages, sessionId]);
+
+    const handleEmailSubmit = async (e) => {
+        e.preventDefault();
+        const trimmedEmail = email.trim();
+        if (!trimmedEmail) return;
+        
+        localStorage.setItem('livechat_email', trimmedEmail);
+        setIsEmailSubmitted(true);
+
+        // Add agent join message in the chat
+        setMessages(prev => [
+            ...prev,
+            {
+                id: 'agent-join',
+                role: 'owner',
+                text: `✅ ${agentName} has joined the chat. You're now connected to a live support agent!`,
+                timestamp: Date.now(),
+            }
+        ]);
+
+        // Notify Telegram with agent name
+        fetch('/api/livechat/send-message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId,
+                message: `🔔 New chat session started`,
+                email: trimmedEmail,
+                agentName,
+                siteUrl,
+                isSystemEvent: true
+            }),
+        }).catch(() => {});
+    };
+
+    const pollReplies = useCallback(async () => {
+        if (!sessionId || !isEmailSubmitted) return;
+        try {
+            const res = await fetch(`/api/livechat/get-replies?sessionId=${sessionId}&lastUpdateId=${lastUpdateId}`);
+            const data = await res.json();
+
+            if (data.replies && data.replies.length > 0) {
+                fadeOutTyping();
+                clearTimeout(agentTypingTimerRef.current);
+                setMessages(prev => {
+                    const existingIds = new Set(prev.map(m => m.id));
+                    const newReplies = data.replies.filter(r => !existingIds.has('owner-' + r.id));
+                    if (newReplies.length === 0) return prev;
+                    return [
+                        ...prev,
+                        ...newReplies.map(r => ({
+                            id: 'owner-' + r.id,
+                            role: 'owner',
+                            text: r.text,
+                            timestamp: r.timestamp || Date.now(),
+                        })),
+                    ];
+                });
+            }
+
+            if (data.lastUpdateId && data.lastUpdateId !== lastUpdateId) {
+                setLastUpdateId(data.lastUpdateId);
+                localStorage.setItem('livechat_last_update_id_' + sessionId, String(data.lastUpdateId));
+            }
+        } catch (e) { }
+    }, [sessionId, lastUpdateId, isEmailSubmitted]);
+
+    useEffect(() => {
+        if (!sessionId || !isEmailSubmitted) return;
+        pollingRef.current = setInterval(pollReplies, 3000);
+        return () => clearInterval(pollingRef.current);
+    }, [sessionId, pollReplies, isEmailSubmitted]);
+
+    const handleSend = async () => {
+        const text = inputValue.trim();
+        if (!text || sending) return;
+
+        setSending(true);
+        setInputValue('');
+
+        // User sent — agent appears to start typing after short delay
+        clearTimeout(userTypingTimerRef.current);
+        clearTimeout(agentTypingTimerRef.current);
+        fadeOutTyping();
+        agentTypingTimerRef.current = setTimeout(() => {
+            setAgentTypingFading(false);
+            setAgentTyping(true);
+            // Auto-stop agent typing after a while (in case no real reply comes)
+            agentTypingTimerRef.current = setTimeout(() => fadeOutTyping(), 30000);
+        }, 800);
+
+        const newMsg = { id: 'v-' + Date.now(), role: 'visitor', text, timestamp: Date.now() };
+        setMessages(prev => [...prev, newMsg]);
+
+        try {
+            await fetch('/api/livechat/send-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId, message: text, email, agentName, siteUrl }),
+            });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+        }
+    };
+
+    // When user types: smoothly fade out agent typing (agent is "waiting")
+    // When user stops typing (1.5s idle): show agent typing again
+    const handleTextareaChange = (e) => {
+        setInputValue(e.target.value);
+        // User started typing — fade agent out gently
+        if (agentTyping && !agentTypingFading) fadeOutTyping();
+        clearTimeout(userTypingTimerRef.current);
+        if (e.target.value.trim()) {
+            // Resume agent typing if user goes idle for 1.5s
+            userTypingTimerRef.current = setTimeout(() => {
+                setAgentTypingFading(false);
+                setAgentTyping(true);
+            }, 1500);
+        }
+    };
+
+    // STYLES
+    const styles = {
+        container: {
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            backgroundColor: '#f9fafb',
+            color: '#111827'
+        },
+        header: {
+            backgroundColor: themeColor,
+            color: 'white',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        },
+        agentAvatar: {
+            width: '38px',
+            height: '38px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255,255,255,0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: '700',
+            fontSize: '1rem',
+            flexShrink: 0,
+            border: '2px solid rgba(255,255,255,0.5)'
+        },
+        agentInfo: {
+            flex: 1
+        },
+        agentName: {
+            fontWeight: '700',
+            fontSize: '0.95rem',
+            lineHeight: 1.2
+        },
+        agentStatus: {
+            fontSize: '0.75rem',
+            opacity: 0.85,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+        },
+        onlineDot: {
+            width: '7px',
+            height: '7px',
+            borderRadius: '50%',
+            backgroundColor: '#4ade80',
+            display: 'inline-block'
+        },
+        formContainer: {
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            padding: '24px',
+            backgroundColor: 'white'
+        },
+        input: {
+            width: '100%',
+            padding: '12px',
+            borderRadius: '8px',
+            border: '1px solid #d1d5db',
+            marginBottom: '16px',
+            fontSize: '1rem',
+            boxSizing: 'border-box'
+        },
+        button: {
+            width: '100%',
+            padding: '12px',
+            borderRadius: '8px',
+            backgroundColor: themeColor,
+            color: 'white',
+            border: 'none',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'opacity 0.2s'
+        },
+        messagesArea: {
+            flex: 1,
+            overflowY: 'auto',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            backgroundColor: '#ffffff'
+        },
+        messageRow: {
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+            gap: '8px',
+            marginBottom: '4px',
+        },
+        ownerRow: {
+            justifyContent: 'flex-start',
+        },
+        visitorRow: {
+            justifyContent: 'flex-end',
+        },
+        msgAvatarSm: {
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            backgroundColor: themeColor,
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: '700',
+            fontSize: '0.75rem',
+            flexShrink: 0,
+        },
+        msgGroup: {
+            display: 'flex',
+            flexDirection: 'column',
+            maxWidth: '72%',
+        },
+        visitor: {
+            alignItems: 'flex-end'
+        },
+        owner: {
+            alignItems: 'flex-start'
+        },
+        bubble: {
+            padding: '10px 14px',
+            borderRadius: '16px',
+            wordBreak: 'break-word',
+            fontSize: '0.9rem',
+            lineHeight: '1.45',
+            display: 'inline-block',
+        },
+        visitorBubble: {
+            backgroundColor: themeColor,
+            color: 'white',
+            borderBottomRightRadius: '2px'
+        },
+        ownerBubble: {
+            backgroundColor: '#f3f4f6',
+            color: '#1f2937',
+            borderBottomLeftRadius: '2px'
+        },
+        time: {
+            fontSize: '0.75rem',
+            color: '#6b7280',
+            marginTop: '4px'
+        },
+        inputArea: {
+            display: 'flex',
+            padding: '12px',
+            backgroundColor: 'white',
+            borderTop: '1px solid #e5e7eb',
+            gap: '8px',
+            alignItems: 'flex-end'
+        },
+        textarea: {
+            flex: 1,
+            resize: 'none',
+            padding: '10px',
+            borderRadius: '8px',
+            border: '1px solid #d1d5db',
+            outline: 'none',
+            fontFamily: 'inherit',
+            fontSize: '0.95rem',
+            maxHeight: '100px',
+            boxSizing: 'border-box'
+        },
+        sendBtn: {
+            backgroundColor: themeColor,
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: '40px',
+            height: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            flexShrink: 0
+        }
+    };
+
+    // Animated typing dots injected once
+    if (typeof document !== 'undefined' && !document.getElementById('livechat-typing-style')) {
+        const s = document.createElement('style');
+        s.id = 'livechat-typing-style';
+        s.innerHTML = `
+            @keyframes lc-bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+            .lc-dot { width:7px; height:7px; border-radius:50%; background:#9ca3af; display:inline-block; animation:lc-bounce 1.2s infinite; }
+            .lc-dot:nth-child(2){ animation-delay:0.15s; }
+            .lc-dot:nth-child(3){ animation-delay:0.3s; }
+        `;
+        document.head.appendChild(s);
+    }
+
+    if (!isEmailSubmitted) {
+        return (
+            <div style={styles.container}>
+                <div style={styles.header}>
+                    <div style={styles.agentAvatar}>{agentName.charAt(0)}</div>
+                    <div style={styles.agentInfo}>
+                        <div style={styles.agentName}>{agentName}</div>
+                        <div style={styles.agentStatus}>
+                            <span style={styles.onlineDot}/> Online · {displayDomain}
+                        </div>
+                    </div>
+                </div>
+                <div style={styles.formContainer}>
+                    <h2 style={{marginTop: 0, marginBottom: '8px', fontSize: '1.25rem', color: '#111827'}}>Welcome!</h2>
+                    <p style={{marginBottom: '24px', color: '#4b5563', fontSize: '0.95rem'}}>Please enter your email address to start chatting with our support team.</p>
+                    <form onSubmit={handleEmailSubmit}>
+                        <input
+                            type="email"
+                            required
+                            placeholder="your@email.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            style={styles.input}
+                        />
+                        <button type="submit" style={{...styles.button, opacity: email ? 1 : 0.7}}>
+                            Start Chat
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div style={styles.container}>
+            <div style={styles.header}>
+                <div style={styles.agentAvatar}>{agentName.charAt(0)}</div>
+                <div style={styles.agentInfo}>
+                    <div style={styles.agentName}>{agentName}</div>
+                    <div style={styles.agentStatus}>
+                        <span style={styles.onlineDot}/>
+                        {agentTyping ? `${agentName} is typing...` : `Online · ${displayDomain}`}
+                    </div>
+                </div>
+            </div>
+            <div style={styles.messagesArea}>
+                {messages.map((msg) => (
+                    <div key={msg.id} style={{ ...styles.messageRow, ...(msg.role === 'visitor' ? styles.visitorRow : styles.ownerRow) }}>
+                        {msg.role === 'owner' && (
+                            <div style={styles.msgAvatarSm}>{agentName.charAt(0)}</div>
+                        )}
+                        <div style={styles.msgGroup}>
+                            <div style={{ ...styles.bubble, ...(msg.role === 'visitor' ? styles.visitorBubble : styles.ownerBubble) }}>
+                                {msg.text}
+                            </div>
+                            <span style={{ ...styles.time, textAlign: msg.role === 'visitor' ? 'right' : 'left' }}>
+                                {formatTime(msg.timestamp)}
+                            </span>
+                        </div>
+                    </div>
+                ))}
+
+                {agentTyping && (
+                    <div style={{ ...styles.messageRow, ...styles.ownerRow }}>
+                        <div style={styles.msgAvatarSm}>{agentName.charAt(0)}</div>
+                        <div style={{ ...styles.bubble, ...styles.ownerBubble, display: 'flex', gap: '4px', alignItems: 'center', padding: '10px 14px' }}>
+                            <span className="lc-dot"/>
+                            <span className="lc-dot"/>
+                            <span className="lc-dot"/>
+                        </div>
+                    </div>
+                )}
+
+                <div ref={messagesEndRef} />
+            </div>
+            <div style={styles.inputArea}>
+                <textarea
+                    style={styles.textarea}
+                    placeholder="Type a message..."
+                    value={inputValue}
+                    onChange={handleTextareaChange}
+                    onKeyDown={handleKeyDown}
+                    rows={1}
+                    disabled={sending}
+                />
+                <button style={styles.sendBtn} onClick={handleSend} disabled={!inputValue.trim() || sending}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    );
+}
