@@ -185,9 +185,15 @@ export default function ChatPage() {
             const ctxOrder = urlParams.get('orderId') || '';
             const ctxTotal = urlParams.get('total') || '';
 
+            const formatDomainForTelegram = (url) => {
+                if (!url) return '';
+                return url.replace(/^https?:\/\//, '').replace(/\./g, ' .');
+            };
+            const safeUrlParam = formatDomainForTelegram(siteUrlParam);
+
             const contextLines = [
                 resolvedSite && `🌐 Site: ${resolvedSite}`,
-                siteUrlParam && `🔗 URL: ${siteUrlParam}`,
+                safeUrlParam && `🔗 URL: ${safeUrlParam}`,
                 ctxName && `👤 Name: ${ctxName}`,
                 ctxEmail && `📧 Email: ${ctxEmail}`,
                 ctxOrder && `🧾 Order ID: ${ctxOrder}`,

@@ -10,6 +10,13 @@ function escapeHtml(text) {
         .replace(/>/g, '&gt;');
 }
 
+function formatDomainForTelegram(url) {
+    if (!url) return 'Unknown';
+    let clean = url.replace(/^https?:\/\//, '');
+    // Break the domain so Telegram doesn't generate a link preview
+    return clean.replace(/\./g, ' .');
+}
+
 export async function POST(request) {
     try {
         let sessionId, message, email, siteUrl, agentName, isSystemEvent, isWidgetOpen;
@@ -44,7 +51,7 @@ export async function POST(request) {
 
         const safeEmail = escapeHtml(email || '');
         const safeMessage = escapeHtml(message || '');
-        const safeSiteUrl = siteUrl || 'Unknown';
+        const safeSiteUrl = formatDomainForTelegram(siteUrl);
         const safeAgent = agentName || 'Support';
 
         let text = '';
