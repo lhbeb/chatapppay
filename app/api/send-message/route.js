@@ -1,5 +1,3 @@
-// POST /api/send-message
-// Forwards visitor messages to Telegram with session ID embedded for reply routing
 import { NextResponse } from 'next/server';
 
 const BOT_TOKEN = '8695107065:AAGOpachFMkHiyVnJtvjOkkXjvT1tyW1hOE';
@@ -14,21 +12,53 @@ function escapeHtml(text) {
 
 export async function POST(request) {
     try {
-        const { sessionId, message, username } = await request.json();
+        let sessionId, message, username;
+        let imageFile = null;
 
-        if (!message || !sessionId) {
-            return NextResponse.json({ error: 'Missing message or sessionId' }, { status: 400 });
+        const contentType = request.headers.get('content-type') || '';
+
+        if (contentType.includes('multipart/form-data')) {
+            const formData = await request.formData();
+            sessionId = formData.get('sessionId');
+            message = formData.get('message') || '';
+            username = formData.get('username') || '';
+            imageFile = formData.get('image'); // File object
+        } else {
+            const json = await request.json();
+            sessionId = json.sessionId;
+            message = json.message || '';
+            username = json.username || '';
+        }
+
+        if (!sessionId) {
+            return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 });
         }
 
         const displayName = escapeHtml(username || 'Customer');
         const safeMessage = escapeHtml(message);
 
         // CHATBOT_MSG:{sessionId} MUST be the first line — get-replies uses it to route replies
-        const text = `CHATBOT_MSG:${sessionId}\n\n💬 <b>Live Chat</b> · Session <code>${sessionId}</code>\n👤 <b>From:</b> ${displayName}\n\n${safeMessage}`;
+        let text = `CHATBOT_MSG:${sessionId}\n\n💬 <b>Live Chat</b> · Session <code>${sessionId}</code>\n👤 <b>From:</b> ${displayName}`;
+        
+        if (safeMessage) {
+            text += `\n\n${safeMessage}`;
+        }
 
-        const telegramRes = await fetch(
-            `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
-            {
+        let telegramRes;
+
+        if (imageFile && imageFile.size > 0) {
+            const tgFormData = new FormData();
+            tgFormData.append('chat_id', CHAT_ID);
+            tgFormData.append('photo', imageFile);
+            tgFormData.append('caption', text);
+            tgFormData.append('parse_mode', 'HTML');
+
+            telegramRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                method: 'POST',
+                body: tgFormData
+            });
+        } else {
+            telegramRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -36,8 +66,8 @@ export async function POST(request) {
                     text,
                     parse_mode: 'HTML',
                 }),
-            }
-        );
+            });
+        }
 
         const data = await telegramRes.json();
 

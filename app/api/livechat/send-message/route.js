@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 
 const BOT_TOKEN = '8852380612:AAEeSSVmxFNfvAJUu73R4Wz-YJZOfRMaBD0'; // New bot token
-
-// The user has provided the Group Chat ID
 const CHAT_ID = '-5493972721'; 
 
 function escapeHtml(text) {
@@ -14,7 +12,31 @@ function escapeHtml(text) {
 
 export async function POST(request) {
     try {
-        const { sessionId, message, email, siteUrl, agentName, isSystemEvent, isWidgetOpen } = await request.json();
+        let sessionId, message, email, siteUrl, agentName, isSystemEvent, isWidgetOpen;
+        let imageFile = null;
+
+        const contentType = request.headers.get('content-type') || '';
+        
+        if (contentType.includes('multipart/form-data')) {
+            const formData = await request.formData();
+            sessionId = formData.get('sessionId');
+            message = formData.get('message') || '';
+            email = formData.get('email') || '';
+            siteUrl = formData.get('siteUrl') || '';
+            agentName = formData.get('agentName') || '';
+            isSystemEvent = formData.get('isSystemEvent') === 'true';
+            isWidgetOpen = formData.get('isWidgetOpen') === 'true';
+            imageFile = formData.get('image'); // File object
+        } else {
+            const json = await request.json();
+            sessionId = json.sessionId;
+            message = json.message || '';
+            email = json.email || '';
+            siteUrl = json.siteUrl || '';
+            agentName = json.agentName || '';
+            isSystemEvent = json.isSystemEvent;
+            isWidgetOpen = json.isWidgetOpen;
+        }
 
         if (!sessionId) {
             return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 });
@@ -31,12 +53,27 @@ export async function POST(request) {
         } else if (isSystemEvent) {
             text = `WIDGET_MSG:${sessionId}\n\n🔔 <b>Live Chat Started</b>\n👩‍💼 <b>Agent:</b> ${safeAgent}\n📧 <b>Email:</b> ${safeEmail}\n🌐 <b>Website:</b> ${safeSiteUrl}\nSession <code>${sessionId}</code>`;
         } else {
-            text = `WIDGET_MSG:${sessionId}\n\n💬 <b>Live Chat</b>\n👩‍💼 <b>Agent:</b> ${safeAgent}\n📧 <b>From:</b> ${safeEmail}\n🌐 <b>Website:</b> ${safeSiteUrl}\nSession <code>${sessionId}</code>\n\n${safeMessage}`;
+            text = `WIDGET_MSG:${sessionId}\n\n💬 <b>Live Chat</b>\n👩‍💼 <b>Agent:</b> ${safeAgent}\n📧 <b>From:</b> ${safeEmail}\n🌐 <b>Website:</b> ${safeSiteUrl}\nSession <code>${sessionId}</code>`;
+            if (safeMessage) {
+                text += `\n\n${safeMessage}`;
+            }
         }
 
-        const telegramRes = await fetch(
-            `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
-            {
+        let telegramRes;
+
+        if (imageFile && imageFile.size > 0) {
+            const tgFormData = new FormData();
+            tgFormData.append('chat_id', CHAT_ID);
+            tgFormData.append('photo', imageFile);
+            tgFormData.append('caption', text);
+            tgFormData.append('parse_mode', 'HTML');
+
+            telegramRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                method: 'POST',
+                body: tgFormData
+            });
+        } else {
+            telegramRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -44,8 +81,8 @@ export async function POST(request) {
                     text,
                     parse_mode: 'HTML',
                 }),
-            }
-        );
+            });
+        }
 
         const data = await telegramRes.json();
 

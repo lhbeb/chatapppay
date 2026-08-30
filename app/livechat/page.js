@@ -55,8 +55,11 @@ export default function LiveChatPage() {
     const [inputValue, setInputValue] = useState('');
     const [sending, setSending] = useState(false);
     const [lastUpdateId, setLastUpdateId] = useState(0);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
 
     const messagesEndRef  = useRef(null);
+    const fileInputRef    = useRef(null);
     const pollingRef      = useRef(null);
     const agentTypingTimerRef = useRef(null);
     const userTypingTimerRef  = useRef(null);
@@ -215,12 +218,36 @@ export default function LiveChatPage() {
         return () => clearInterval(pollingRef.current);
     }, [sessionId, pollReplies, isEmailSubmitted]);
 
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Image must be less than 5MB');
+                return;
+            }
+            setSelectedImage(file);
+            const reader = new FileReader();
+            reader.onload = (ev) => setImagePreview(ev.target.result);
+            reader.readAsDataURL(file);
+        }
+        e.target.value = '';
+    };
+
+    const clearImage = () => {
+        setSelectedImage(null);
+        setImagePreview(null);
+    };
+
     const handleSend = async () => {
         const text = inputValue.trim();
-        if (!text || sending) return;
+        if ((!text && !selectedImage) || sending) return;
 
         setSending(true);
         setInputValue('');
+
+        const currentImageFile = selectedImage;
+        const currentImagePreview = imagePreview;
+        clearImage();
 
         // User sent — agent appears to start typing after short delay
         clearTimeout(userTypingTimerRef.current);
@@ -233,14 +260,27 @@ export default function LiveChatPage() {
             agentTypingTimerRef.current = setTimeout(() => fadeOutTyping(), 30000);
         }, 800);
 
-        const newMsg = { id: 'v-' + Date.now(), role: 'visitor', text, timestamp: Date.now() };
+        const newMsg = { 
+            id: 'v-' + Date.now(), 
+            role: 'visitor', 
+            text, 
+            imageUrl: currentImagePreview,
+            timestamp: Date.now() 
+        };
         setMessages(prev => [...prev, newMsg]);
 
         try {
+            const formData = new FormData();
+            formData.append('sessionId', sessionId);
+            formData.append('email', email);
+            formData.append('siteUrl', siteUrl);
+            formData.append('agentName', agentName);
+            if (text) formData.append('message', text);
+            if (currentImageFile) formData.append('image', currentImageFile);
+
             await fetch('/api/livechat/send-message', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId, message: text, email, agentName, siteUrl }),
+                body: formData,
             });
         } catch (e) {
             console.error(e);
@@ -426,11 +466,28 @@ export default function LiveChatPage() {
         },
         inputArea: {
             display: 'flex',
+            flexDirection: 'column',
             padding: '12px',
             backgroundColor: 'white',
             borderTop: '1px solid #e5e7eb',
             gap: '8px',
-            alignItems: 'flex-end'
+        },
+        inputRow: {
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: '8px',
+        },
+        attachBtn: {
+            backgroundColor: 'transparent',
+            color: '#6b7280',
+            border: 'none',
+            padding: '8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            transition: 'background-color 0.2s',
         },
         textarea: {
             flex: 1,
@@ -525,6 +582,9 @@ export default function LiveChatPage() {
                         )}
                         <div style={styles.msgGroup}>
                             <div style={{ ...styles.bubble, ...(msg.role === 'visitor' ? styles.visitorBubble : styles.ownerBubble) }}>
+                                {msg.imageUrl && (
+                                    <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} />
+                                )}
                                 {msg.text}
                             </div>
                             <span style={{ ...styles.time, textAlign: msg.role === 'visitor' ? 'right' : 'left' }}>
@@ -535,7 +595,13 @@ export default function LiveChatPage() {
                 ))}
 
                 {agentTyping && (
-                    <div style={{ ...styles.messageRow, ...styles.ownerRow }}>
+                    <div style={{
+                        ...styles.messageRow,
+                        ...styles.ownerRow,
+                        opacity: agentTypingFading ? 0 : 1,
+                        transform: agentTypingFading ? 'translateY(10px) scale(0.95)' : 'translateY(0) scale(1)',
+                        transition: 'opacity 0.4s ease, transform 0.4s ease',
+                    }}>
                         <div style={styles.msgAvatarSm}>{agentName.charAt(0)}</div>
                         <div style={{ ...styles.bubble, ...styles.ownerBubble, display: 'flex', gap: '4px', alignItems: 'center', padding: '10px 14px' }}>
                             <span className="lc-dot"/>
@@ -548,21 +614,45 @@ export default function LiveChatPage() {
                 <div ref={messagesEndRef} />
             </div>
             <div style={styles.inputArea}>
-                <textarea
-                    style={styles.textarea}
-                    placeholder="Type a message..."
-                    value={inputValue}
-                    onChange={handleTextareaChange}
-                    onKeyDown={handleKeyDown}
-                    rows={1}
-                    disabled={sending}
-                />
-                <button style={styles.sendBtn} onClick={handleSend} disabled={!inputValue.trim() || sending}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
-                </button>
+                {imagePreview && (
+                    <div style={{ position: 'relative', display: 'inline-block', marginBottom: '8px', alignSelf: 'flex-start' }}>
+                        <img src={imagePreview} alt="preview" style={{ height: '60px', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                        <button 
+                            onClick={clearImage}
+                            style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            ×
+                        </button>
+                    </div>
+                )}
+                <div style={styles.inputRow}>
+                    <button style={styles.attachBtn} onClick={() => fileInputRef.current?.click()} disabled={sending} title="Attach image">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                        </svg>
+                    </button>
+                    <input 
+                        type="file" 
+                        accept="image/*" 
+                        ref={fileInputRef} 
+                        style={{ display: 'none' }} 
+                        onChange={handleFileSelect} 
+                    />
+                    <textarea
+                        style={styles.textarea}
+                        placeholder="Type a message..."
+                        value={inputValue}
+                        onChange={handleTextareaChange}
+                        onKeyDown={handleKeyDown}
+                        rows={1}
+                        disabled={sending}
+                    />
+                    <button style={styles.sendBtn} onClick={handleSend} disabled={(!inputValue.trim() && !selectedImage) || sending}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     );

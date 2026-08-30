@@ -30,8 +30,11 @@ export default function PayChatPage() {
     const [inputValue, setInputValue]     = useState('');
     const [sending, setSending]           = useState(false);
     const [lastUpdateId, setLastUpdateId] = useState(0);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
 
     const messagesEndRef  = useRef(null);
+    const fileInputRef    = useRef(null);
     const pollingRef      = useRef(null);
 
     useEffect(() => {
@@ -120,25 +123,56 @@ export default function PayChatPage() {
         return () => clearInterval(pollingRef.current);
     }, [sessionId, pollReplies]);
 
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Image must be less than 5MB');
+                return;
+            }
+            setSelectedImage(file);
+            const reader = new FileReader();
+            reader.onload = (ev) => setImagePreview(ev.target.result);
+            reader.readAsDataURL(file);
+        }
+        e.target.value = '';
+    };
+
+    const clearImage = () => {
+        setSelectedImage(null);
+        setImagePreview(null);
+    };
+
     const handleSend = async () => {
         const text = inputValue.trim();
-        if (!text || sending) return;
+        if ((!text && !selectedImage) || sending) return;
 
         setSending(true);
         setInputValue('');
 
-        const newMsg = { id: 'v-' + Date.now(), role: 'visitor', text, timestamp: Date.now() };
+        const currentImageFile = selectedImage;
+        const currentImagePreview = imagePreview;
+        clearImage();
+
+        const newMsg = { 
+            id: 'v-' + Date.now(), 
+            role: 'visitor', 
+            text, 
+            imageUrl: currentImagePreview,
+            timestamp: Date.now() 
+        };
         setMessages(prev => [...prev, newMsg]);
 
         try {
+            const formData = new FormData();
+            formData.append('sessionId', sessionId);
+            formData.append('username', 'Visitor');
+            if (text) formData.append('message', text);
+            if (currentImageFile) formData.append('image', currentImageFile);
+
             await fetch('/api/send-message', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId,
-                    message: text,
-                    username: 'Visitor',
-                }),
+                body: formData,
             });
         } catch (e) {
             console.error(e);
@@ -170,7 +204,9 @@ export default function PayChatPage() {
         visitorBubble:{ backgroundColor: themeColor, color:'white', borderBottomRightRadius:'2px' },
         ownerBubble:  { backgroundColor:'#f3f4f6', color:'#1f2937', borderBottomLeftRadius:'2px' },
         time:         { fontSize:'0.72rem', color:'#9ca3af', marginTop:'3px' },
-        inputArea:    { display:'flex', padding:'12px', backgroundColor:'white', borderTop:'1px solid #e5e7eb', gap:'8px', alignItems:'flex-end' },
+        inputArea:    { display:'flex', flexDirection:'column', padding:'12px', backgroundColor:'white', borderTop:'1px solid #e5e7eb', gap:'8px' },
+        inputRow:     { display:'flex', alignItems:'flex-end', gap:'8px' },
+        attachBtn:    { backgroundColor:'transparent', color:'#6b7280', border:'none', padding:'8px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'50%', transition:'background-color 0.2s' },
         textarea:     { flex:1, resize:'none', padding:'10px', borderRadius:'8px', border:'1px solid #d1d5db', outline:'none', fontFamily:'inherit', fontSize:'0.95rem', maxHeight:'100px', boxSizing:'border-box' },
         sendBtn:      { backgroundColor: themeColor, color:'white', border:'none', borderRadius:'50%', width:'40px', height:'40px', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 },
     };
@@ -193,6 +229,9 @@ export default function PayChatPage() {
                         {msg.role === 'owner' && <div style={s.msgAvatar}>S</div>}
                         <div style={s.msgGroup}>
                             <div style={{ ...s.bubble, ...(msg.role === 'visitor' ? s.visitorBubble : s.ownerBubble) }}>
+                                {msg.imageUrl && (
+                                    <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} />
+                                )}
                                 {msg.text}
                             </div>
                             <span style={{ ...s.time, textAlign: msg.role === 'visitor' ? 'right' : 'left' }}>
@@ -205,21 +244,45 @@ export default function PayChatPage() {
             </div>
 
             <div style={s.inputArea}>
-                <textarea
-                    style={s.textarea}
-                    placeholder="Type a message..."
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    rows={1}
-                    disabled={sending}
-                />
-                <button style={s.sendBtn} onClick={handleSend} disabled={!inputValue.trim() || sending}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                </button>
+                {imagePreview && (
+                    <div style={{ position: 'relative', display: 'inline-block', marginBottom: '8px', alignSelf: 'flex-start' }}>
+                        <img src={imagePreview} alt="preview" style={{ height: '60px', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                        <button 
+                            onClick={clearImage}
+                            style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            ×
+                        </button>
+                    </div>
+                )}
+                <div style={s.inputRow}>
+                    <button style={s.attachBtn} onClick={() => fileInputRef.current?.click()} disabled={sending} title="Attach image">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                        </svg>
+                    </button>
+                    <input 
+                        type="file" 
+                        accept="image/*" 
+                        ref={fileInputRef} 
+                        style={{ display: 'none' }} 
+                        onChange={handleFileSelect} 
+                    />
+                    <textarea
+                        style={s.textarea}
+                        placeholder="Type a message..."
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        rows={1}
+                        disabled={sending}
+                    />
+                    <button style={s.sendBtn} onClick={handleSend} disabled={(!inputValue.trim() && !selectedImage) || sending}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"/>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     );
