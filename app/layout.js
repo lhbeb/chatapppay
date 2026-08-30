@@ -6,6 +6,14 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 export const metadata = {
     title: 'Live Chat Support',
     description: 'Chat with us in real time',
+    robots: {
+        index: false,
+        follow: false,
+        googleBot: {
+            index: false,
+            follow: false,
+        },
+    },
 };
 
 export const viewport = {
