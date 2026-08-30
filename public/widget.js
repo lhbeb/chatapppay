@@ -50,6 +50,8 @@
     const ORDER_ID = cfg.orderId || attr('data-order-id') || '';
     const ORDER_TOTAL = cfg.total || attr('data-order-total') || '';
     const WELCOME_MSG = cfg.welcomeMessage || attr('data-welcome-message') || '';
+    const SITE_URL = cfg.siteUrl || attr('data-site-url') || window.location.href;
+    const SITE_NAME = cfg.siteName || cfg.brandName || attr('data-site-name') || attr('data-brand-name') || '';
 
     // Build iframe src with context as query params
     const params = new URLSearchParams();
@@ -58,6 +60,8 @@
     if (ORDER_ID) params.set('orderId', ORDER_ID);
     if (ORDER_TOTAL) params.set('total', ORDER_TOTAL);
     if (WELCOME_MSG) params.set('welcomeMessage', WELCOME_MSG);
+    if (SITE_NAME) params.set('siteName', SITE_NAME);
+    if (SITE_URL) params.set('siteUrl', SITE_URL);
 
     const chatSrc = CHAT_URL + (params.toString() ? '?' + params.toString() : '');
 

@@ -14,6 +14,63 @@ function formatTime(ts) {
 const WELCOME_MSG_1 = `Thank you for your order! 🎉\nWe've reserved your item and are preparing your PayPal invoice now.`;
 const WELCOME_MSG_2 = `Before we send it, just let us know if you're ready to proceed with the payment.\nWe'll include all order details in the invoice for your review.`;
 
+const KNOWN_BRANDS = {
+    'deeldepot': 'DeelDepot',
+    'caslodo': 'Caslodo',
+    'chatapppay': 'ChatPay',
+};
+
+function extractBrandFromUrl(rawUrl) {
+    if (!rawUrl) return '';
+    try {
+        let domain = rawUrl;
+        if (domain.includes('://')) {
+            domain = new URL(domain).hostname;
+        } else if (domain.includes('/')) {
+            domain = domain.split('/')[0];
+        }
+        domain = domain.split(':')[0].toLowerCase().trim();
+
+        if (!domain || domain === 'localhost' || domain === '127.0.0.1') {
+            return '';
+        }
+
+        const parts = domain.split('.').filter(Boolean);
+        if (parts.length === 0) return '';
+
+        let mainPart = '';
+        const commonSubdomains = ['www', 'm', 'shop', 'store', 'checkout', 'pay', 'app', 'secure', 'order'];
+
+        const suffix = parts.slice(-2).join('.');
+        if (suffix === 'vercel.app' || suffix === 'myshopify.com' || suffix === 'netlify.app' || suffix === 'github.io') {
+            mainPart = parts[0];
+        } else if (parts.length >= 3 && commonSubdomains.includes(parts[0])) {
+            mainPart = parts[1];
+        } else if (parts.length >= 2) {
+            const twoLevelTlds = ['co.uk', 'org.uk', 'com.au', 'net.au', 'co.nz', 'co.jp', 'com.br', 'co.za'];
+            if (twoLevelTlds.includes(suffix) && parts.length >= 3) {
+                mainPart = parts[parts.length - 3];
+            } else {
+                mainPart = parts[parts.length - 2];
+            }
+        } else {
+            mainPart = parts[0];
+        }
+
+        let basePart = mainPart.replace(/-\d+$/, '').replace(/[-_]/g, ' ').trim();
+        const key = basePart.replace(/\s+/g, '').toLowerCase();
+        if (KNOWN_BRANDS[key]) {
+            return KNOWN_BRANDS[key];
+        }
+
+        return basePart.split(' ')
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
+    } catch {
+        return '';
+    }
+}
+
 export default function ChatPage() {
     const [sessionId, setSessionId] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -23,12 +80,29 @@ export default function ChatPage() {
     const [lastUpdateId, setLastUpdateId] = useState(0);
     const [selectedImage, setSelectedImage] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+    const [siteName, setSiteName] = useState('DeelDepot');
 
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
     const pollingRef = useRef(null);
     const notifiedRef = useRef(false);
+
+    // ── Listen for dynamic parent window postMessage ────────────────────────────
+    useEffect(() => {
+        const handleMsg = (e) => {
+            if (e.data && typeof e.data === 'object') {
+                if (e.data.siteName) {
+                    setSiteName(e.data.siteName);
+                } else if (e.data.siteUrl) {
+                    const extracted = extractBrandFromUrl(e.data.siteUrl);
+                    if (extracted) setSiteName(extracted);
+                }
+            }
+        };
+        window.addEventListener('message', handleMsg);
+        return () => window.removeEventListener('message', handleMsg);
+    }, []);
 
     // ── On mount: restore or create session, show welcome, notify Telegram ──────
     useEffect(() => {
@@ -49,6 +123,25 @@ export default function ChatPage() {
 
         // Read context injected by widget.js via URL params (needed in both paths)
         const urlParams = new URLSearchParams(window.location.search);
+
+        // Resolve site name from query param, referrer, ancestorOrigins, or cache
+        let resolvedSite = urlParams.get('siteName') || urlParams.get('brand') || urlParams.get('brandName');
+        const siteUrlParam = urlParams.get('siteUrl') || urlParams.get('site') || urlParams.get('url') || urlParams.get('origin') || urlParams.get('host');
+        if (!resolvedSite && siteUrlParam) {
+            resolvedSite = extractBrandFromUrl(siteUrlParam);
+        }
+        if (!resolvedSite && typeof document !== 'undefined' && document.referrer) {
+            resolvedSite = extractBrandFromUrl(document.referrer);
+        }
+        if (!resolvedSite && typeof window !== 'undefined' && window.location?.ancestorOrigins?.length > 0) {
+            resolvedSite = extractBrandFromUrl(window.location.ancestorOrigins[0]);
+        }
+        if (!resolvedSite) {
+            resolvedSite = localStorage.getItem('chat_site_name_' + sid) || 'DeelDepot';
+        } else {
+            localStorage.setItem('chat_site_name_' + sid, resolvedSite);
+        }
+        setSiteName(resolvedSite);
 
         if (savedMessages) {
             try {
@@ -93,6 +186,8 @@ export default function ChatPage() {
             const ctxTotal = urlParams.get('total') || '';
 
             const contextLines = [
+                resolvedSite && `🌐 Site: ${resolvedSite}`,
+                siteUrlParam && `🔗 URL: ${siteUrlParam}`,
                 ctxName && `👤 Name: ${ctxName}`,
                 ctxEmail && `📧 Email: ${ctxEmail}`,
                 ctxOrder && `🧾 Order ID: ${ctxOrder}`,
@@ -261,7 +356,7 @@ export default function ChatPage() {
                         <div className="header-name">Eliza M.</div>
                         <div className="header-status">
                             <span className="status-dot" />
-                            DeelDepot support agent
+                            {siteName ? `${siteName} support agent` : 'Support agent'}
                         </div>
                     </div>
                     <div className="header-badge">Live</div>
