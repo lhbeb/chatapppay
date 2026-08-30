@@ -4,7 +4,7 @@
  * USAGE — set window.HFChatConfig before loading this script:
  *
  *   window.HFChatConfig = {
- *     chatUrl:        'https://chatapppay.vercel.app',
+ *     chatUrl:        'https://chatapppay-rust.vercel.app',
  *     target:         '#chat-widget',       // CSS selector of the mount div
  *     customerName:   'John Doe',
  *     customerEmail:  'john@example.com',
@@ -14,12 +14,12 @@
  *   };
  *   // Then load this script:
  *   const s = document.createElement('script');
- *   s.src = 'https://chatapppay.vercel.app/widget.js';
+ *   s.src = 'https://chatapppay-rust.vercel.app/widget.js';
  *   document.body.appendChild(s);
  *
  * OR — plain HTML (synchronous load):
- *   <script src="https://chatapppay.vercel.app/widget.js"
- *     data-chat-url="https://chatapppay.vercel.app"
+ *   <script src="https://chatapppay-rust.vercel.app/widget.js"
+ *     data-chat-url="https://chatapppay-rust.vercel.app"
  *     data-target="#chat-widget"
  *     data-customer-name="John Doe"
  *     data-customer-email="john@example.com"

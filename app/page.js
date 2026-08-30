@@ -31,7 +31,7 @@ function extractBrandFromUrl(rawUrl) {
         }
         domain = domain.split(':')[0].toLowerCase().trim();
 
-        if (!domain || domain === 'localhost' || domain === '127.0.0.1') {
+        if (!domain || domain === 'localhost' || domain === '127.0.0.1' || domain.includes('chatapppay')) {
             return '';
         }
 
