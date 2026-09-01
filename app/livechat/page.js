@@ -148,23 +148,7 @@ function LiveChatContent() {
             }, 500);
         }
 
-        // Fire a one-time "widget opened" notification to Telegram
-        // Only fires once per session (tracked in localStorage)
-        const notifiedKey = 'livechat_opened_' + sid;
-        if (!localStorage.getItem(notifiedKey)) {
-            localStorage.setItem(notifiedKey, '1');
-            fetch('/api/livechat/send-message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: sid,
-                    message: '👁️ Widget Opened',
-                    email: null,
-                    siteUrl,
-                    isWidgetOpen: true,
-                }),
-            }).catch(() => {});
-        }
+
     }, []);
 
     // Scroll to bottom

@@ -61,24 +61,7 @@ function PayChatContent() {
             }]);
         }
 
-        // Notify Telegram once per session
-        const notifiedKey = 'paychat_opened_' + sid;
-        if (!localStorage.getItem(notifiedKey)) {
-            localStorage.setItem(notifiedKey, '1');
-            const formatDomainForTelegram = (url) => {
-                if (!url) return 'Unknown';
-                return url.replace(/^https?:\/\//, '').replace(/\./g, ' .');
-            };
-            fetch('/api/send-message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: sid,
-                    message: `👁️ Widget Opened\n🌐 Website: ${formatDomainForTelegram(siteUrl)}`,
-                    username: 'Visitor',
-                }),
-            }).catch(() => {});
-        }
+
     }, []);
 
     useEffect(() => {
