@@ -51,6 +51,7 @@
     const ORDER_TOTAL = cfg.total || attr('data-order-total') || '';
     const ITEM_NAME = cfg.itemName || attr('data-item-name') || '';
     const ADDRESS = cfg.address || attr('data-address') || '';
+    const COLOR = cfg.color || attr('data-color') || '';
     const WELCOME_MSG = cfg.welcomeMessage || attr('data-welcome-message') || '';
     const SITE_URL = cfg.siteUrl || attr('data-site-url') || window.location.href;
     const SITE_NAME = cfg.siteName || cfg.brandName || attr('data-site-name') || attr('data-brand-name') || '';
@@ -63,6 +64,7 @@
     if (ORDER_TOTAL) params.set('total', ORDER_TOTAL);
     if (ITEM_NAME) params.set('itemName', ITEM_NAME);
     if (ADDRESS) params.set('address', ADDRESS);
+    if (COLOR) params.set('color', COLOR);
     if (WELCOME_MSG) params.set('welcomeMessage', WELCOME_MSG);
     if (SITE_NAME) params.set('siteName', SITE_NAME);
     if (SITE_URL) params.set('siteUrl', SITE_URL);

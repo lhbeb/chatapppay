@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 
 function generateSessionId() {
     return Math.random().toString(36).slice(2, 9).toUpperCase();
@@ -99,6 +100,17 @@ function extractBrandFromUrl(rawUrl) {
 }
 
 export default function ChatPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', fontFamily: 'sans-serif' }}>Loading chat...</div>}>
+            <ChatPageContent />
+        </Suspense>
+    );
+}
+
+function ChatPageContent() {
+    const searchParams = useSearchParams();
+    const themeColor = searchParams.get('color') || null;
+
     const [sessionId, setSessionId] = useState(null);
     const [agentName, setAgentName] = useState('Support Agent');
     const [agentImage, setAgentImage] = useState(null);
@@ -420,8 +432,15 @@ export default function ChatPage() {
     };
 
     // ── Render ───────────────────────────────────────────────────────────────────
+    const customStyles = themeColor ? {
+        '--owner-bubble': themeColor,
+        '--accent': themeColor,
+        '--online-green': themeColor,
+        '--accent-secondary': themeColor
+    } : {};
+
     return (
-        <div className="page-wrapper">
+        <div className="page-wrapper" style={customStyles}>
             <div className="chat-container">
 
                 {/* Header */}
