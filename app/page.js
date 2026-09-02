@@ -199,6 +199,22 @@ export default function ChatPage() {
                 setMessages(parsed);
             } catch { }
         } else {
+            // Read order context from URL params
+            const ctxName = urlParams.get('name') || '';
+            const ctxEmail = urlParams.get('email') || '';
+            const ctxOrder = urlParams.get('orderId') || '';
+            const ctxTotal = urlParams.get('total') || '';
+            const ctxItemName = urlParams.get('itemName') || '';
+            const ctxAddress = urlParams.get('address') || '';
+
+            const msg1 = ctxItemName && ctxTotal 
+                ? `Thank you for your order! 🎉\nThe item you ordered is: ${ctxItemName}. Your PayPal invoice total will be: ${ctxTotal}.`
+                : WELCOME_MSG_1;
+
+            const msg2 = ctxAddress
+                ? `Just to confirm, is this your delivery address:\n${ctxAddress}\n...right?`
+                : WELCOME_MSG_2;
+
             // First visit
             setTimeout(() => {
                 setMessages([
@@ -215,7 +231,7 @@ export default function ChatPage() {
                         setIsTyping(false);
                         setMessages(prev => [
                             ...prev,
-                            { id: 'welcome-1', role: 'owner', text: WELCOME_MSG_1, timestamp: Date.now() }
+                            { id: 'welcome-1', role: 'owner', text: msg1, timestamp: Date.now() }
                         ]);
 
                         setTimeout(() => {
@@ -224,19 +240,13 @@ export default function ChatPage() {
                                 setIsTyping(false);
                                 setMessages(prev => [
                                     ...prev,
-                                    { id: 'welcome-2', role: 'owner', text: WELCOME_MSG_2, timestamp: Date.now() },
+                                    { id: 'welcome-2', role: 'owner', text: msg2, timestamp: Date.now() },
                                 ]);
                             }, 2800);
                         }, 900);
                     }, 2800);
                 }, 900);
             }, 500);
-
-            // Read order context from URL params
-            const ctxName = urlParams.get('name') || '';
-            const ctxEmail = urlParams.get('email') || '';
-            const ctxOrder = urlParams.get('orderId') || '';
-            const ctxTotal = urlParams.get('total') || '';
 
             const formatDomainForTelegram = (url) => {
                 if (!url) return '';
@@ -250,7 +260,9 @@ export default function ChatPage() {
                 ctxName && `👤 Name: ${ctxName}`,
                 ctxEmail && `📧 Email: ${ctxEmail}`,
                 ctxOrder && `🧾 Order ID: ${ctxOrder}`,
+                ctxItemName && `📦 Item: ${ctxItemName}`,
                 ctxTotal && `💰 Total: ${ctxTotal}`,
+                ctxAddress && `📍 Address: ${ctxAddress}`
             ].filter(Boolean);
 
             const notification = contextLines.length > 0
