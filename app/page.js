@@ -11,6 +11,34 @@ function formatTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+const AGENTS = [
+    { name: 'Sophie', image: '/widget%20profile%20pics/img1.jpg' },
+    { name: 'Emma', image: '/widget%20profile%20pics/img2.jpg' },
+    { name: 'Olivia', image: '/widget%20profile%20pics/img3.jpg' },
+    { name: 'Ava', image: '/widget%20profile%20pics/img4.jpg' },
+    { name: 'Isabella', image: '/widget%20profile%20pics/img5.jpg' }
+];
+
+function getOrCreateAgentName(sessionId) {
+    const key = 'chat_agent_' + sessionId;
+    let data = localStorage.getItem(key);
+    if (!data) {
+        const agent = AGENTS[Math.floor(Math.random() * AGENTS.length)];
+        data = JSON.stringify(agent);
+        localStorage.setItem(key, data);
+        return agent;
+    }
+    try {
+        const parsed = JSON.parse(data);
+        if (parsed && parsed.name && parsed.image) return parsed;
+        throw new Error("Invalid");
+    } catch {
+        const agent = AGENTS[0];
+        localStorage.setItem(key, JSON.stringify(agent));
+        return agent;
+    }
+}
+
 const WELCOME_MSG_1 = `Thank you for your order! 🎉\nWe've reserved your item and are preparing your PayPal invoice now.`;
 const WELCOME_MSG_2 = `Before we send it, just let us know if you're ready to proceed with the payment.\nWe'll include all order details in the invoice for your review.`;
 
@@ -73,6 +101,8 @@ function extractBrandFromUrl(rawUrl) {
 
 export default function ChatPage() {
     const [sessionId, setSessionId] = useState(null);
+    const [agentName, setAgentName] = useState('Support Agent');
+    const [agentImage, setAgentImage] = useState(null);
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
     const [sending, setSending] = useState(false);
@@ -116,6 +146,10 @@ export default function ChatPage() {
         }
 
         setSessionId(sid);
+        
+        const agentData = getOrCreateAgentName(sid);
+        setAgentName(agentData.name);
+        setAgentImage(agentData.image);
 
         if (savedUpdateId) {
             setLastUpdateId(parseInt(savedUpdateId, 10));
@@ -366,10 +400,10 @@ export default function ChatPage() {
                 {/* Header */}
                 <div className="chat-header">
                     <div className="header-avatar">
-                        <Image src="/abby.jpg" alt="Eliza M." width={44} height={44} style={{ borderRadius: '50%', objectFit: 'cover', width: '44px', height: '44px' }} />
+                        {agentImage ? <img src={agentImage} alt={agentName} style={{ borderRadius: '50%', objectFit: 'cover', width: '44px', height: '44px' }} /> : agentName.charAt(0)}
                     </div>
                     <div className="header-info">
-                        <div className="header-name">Eliza M.</div>
+                        <div className="header-name">{agentName}</div>
                         <div className="header-status">
                             <span className="status-dot" />
                             {siteName ? `${siteName} support agent` : 'Support agent'}
@@ -384,7 +418,7 @@ export default function ChatPage() {
                         <div key={msg.id} className={`message-row ${msg.role}`}>
                             {msg.role === 'owner' && (
                                 <div className="owner-avatar-sm">
-                                    <Image src="/abby.jpg" alt="Eliza M." width={30} height={30} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} />
+                                    {agentImage ? <img src={agentImage} alt={agentName} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} /> : agentName.charAt(0)}
                                 </div>
                             )}
                             <div className="msg-wrapper">
@@ -402,7 +436,7 @@ export default function ChatPage() {
                     {isTyping && (
                         <div className="typing-row">
                             <div className="owner-avatar-sm">
-                                <Image src="/abby.jpg" alt="Eliza M." width={30} height={30} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} />
+                                {agentImage ? <img src={agentImage} alt={agentName} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} /> : agentName.charAt(0)}
                             </div>
                             <div className="typing-bubble">
                                 <span className="typing-dot" />

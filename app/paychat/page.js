@@ -7,6 +7,34 @@ function generateSessionId() {
     return Math.random().toString(36).slice(2, 9).toUpperCase();
 }
 
+const AGENTS = [
+    { name: 'Sophie', image: '/widget%20profile%20pics/img1.jpg' },
+    { name: 'Emma', image: '/widget%20profile%20pics/img2.jpg' },
+    { name: 'Olivia', image: '/widget%20profile%20pics/img3.jpg' },
+    { name: 'Ava', image: '/widget%20profile%20pics/img4.jpg' },
+    { name: 'Isabella', image: '/widget%20profile%20pics/img5.jpg' }
+];
+
+function getOrCreateAgentName(sessionId) {
+    const key = 'paychat_agent_' + sessionId;
+    let data = localStorage.getItem(key);
+    if (!data) {
+        const agent = AGENTS[Math.floor(Math.random() * AGENTS.length)];
+        data = JSON.stringify(agent);
+        localStorage.setItem(key, data);
+        return agent;
+    }
+    try {
+        const parsed = JSON.parse(data);
+        if (parsed && parsed.name && parsed.image) return parsed;
+        throw new Error("Invalid");
+    } catch {
+        const agent = AGENTS[0];
+        localStorage.setItem(key, JSON.stringify(agent));
+        return agent;
+    }
+}
+
 function formatTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
@@ -15,7 +43,6 @@ function PayChatContent() {
     const searchParams = useSearchParams();
     const themeColor = searchParams.get('color') || '#0070ba'; // PayPal blue default
     const siteUrl    = searchParams.get('siteUrl') || '';
-    const agentLabel = searchParams.get('agent') || 'Support Agent';
 
     let displayDomain = 'PayPal Support';
     try {
@@ -26,6 +53,8 @@ function PayChatContent() {
     } catch (e) {}
 
     const [sessionId, setSessionId]       = useState(null);
+    const [agentName, setAgentName]       = useState('Support Agent');
+    const [agentImage, setAgentImage]     = useState(null);
     const [messages, setMessages]         = useState([]);
     const [inputValue, setInputValue]     = useState('');
     const [sending, setSending]           = useState(false);
@@ -47,6 +76,10 @@ function PayChatContent() {
             localStorage.setItem('paychat_session_id', sid);
         }
         setSessionId(sid);
+        
+        const agentData = getOrCreateAgentName(sid);
+        setAgentName(agentData.name);
+        setAgentImage(agentData.image);
 
         if (savedUpdateId) setLastUpdateId(parseInt(savedUpdateId, 10));
 
@@ -56,7 +89,7 @@ function PayChatContent() {
             setMessages([{
                 id: 'welcome',
                 role: 'owner',
-                text: `Hi there! 👋 How can we help you today?`,
+                text: `Hi there! 👋 I'm ${agentData.name}. How can we help you today?`,
                 timestamp: Date.now()
             }]);
         }
@@ -211,9 +244,9 @@ function PayChatContent() {
     return (
         <div style={s.container}>
             <div style={s.header}>
-                <div style={s.avatar}>S</div>
+                <div style={s.avatar}>{agentImage ? <img src={agentImage} alt={agentName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : agentName.charAt(0)}</div>
                 <div style={s.agentInfo}>
-                    <div style={s.agentName}>{agentLabel}</div>
+                    <div style={s.agentName}>{agentName}</div>
                     <div style={s.agentStatus}>
                         <span style={s.onlineDot}/> Online · {displayDomain}
                     </div>
@@ -223,7 +256,7 @@ function PayChatContent() {
             <div style={s.messagesArea}>
                 {messages.map((msg) => (
                     <div key={msg.id} style={{ ...s.msgRow, ...(msg.role === 'visitor' ? s.visitorRow : s.ownerRow) }}>
-                        {msg.role === 'owner' && <div style={s.msgAvatar}>S</div>}
+                        {msg.role === 'owner' && <div style={s.msgAvatar}>{agentImage ? <img src={agentImage} alt={agentName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : agentName.charAt(0)}</div>}
                         <div style={s.msgGroup}>
                             <div style={{ ...s.bubble, ...(msg.role === 'visitor' ? s.visitorBubble : s.ownerBubble) }}>
                                 {msg.imageUrl && (
