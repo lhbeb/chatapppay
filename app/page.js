@@ -177,13 +177,29 @@ export default function ChatPage() {
         }
         setSiteName(resolvedSite);
 
+        // Read order context from URL params
+        const ctxName = urlParams.get('name') || '';
+        const ctxEmail = urlParams.get('email') || '';
+        const ctxOrder = urlParams.get('orderId') || '';
+        const ctxTotal = urlParams.get('total') || '';
+        const ctxItemName = urlParams.get('itemName') || '';
+        const ctxAddress = urlParams.get('address') || '';
+
+        const msg1 = ctxItemName && ctxTotal 
+            ? `Thank you for your order! 🎉\nThe item you ordered is: ${ctxItemName}. Your PayPal invoice total will be: ${ctxTotal}.`
+            : WELCOME_MSG_1;
+
+        const msg2 = ctxAddress
+            ? `Just to confirm, is this your delivery address:\n${ctxAddress}\n...right?`
+            : WELCOME_MSG_2;
+
         if (savedMessages) {
             try {
                 let parsed = JSON.parse(savedMessages);
                 // Force-update both welcome messages to the latest text
                 parsed = parsed.map(m => {
-                    if (m.id === 'welcome' || m.id === 'welcome-1') return { ...m, id: 'welcome-1', text: WELCOME_MSG_1 };
-                    if (m.id === 'welcome-2') return { ...m, text: WELCOME_MSG_2 };
+                    if (m.id === 'welcome' || m.id === 'welcome-1') return { ...m, id: 'welcome-1', text: msg1 };
+                    if (m.id === 'welcome-2') return { ...m, text: msg2 };
                     return m;
                 });
                 // Add welcome-2 if missing (e.g. old single-message sessions)
@@ -193,27 +209,12 @@ export default function ChatPage() {
                     parsed.splice(
                         parsed.findIndex(m => m.id === 'welcome-1') + 1,
                         0,
-                        { id: 'welcome-2', role: 'owner', text: WELCOME_MSG_2, timestamp: insertTs }
+                        { id: 'welcome-2', role: 'owner', text: msg2, timestamp: insertTs }
                     );
                 }
                 setMessages(parsed);
             } catch { }
         } else {
-            // Read order context from URL params
-            const ctxName = urlParams.get('name') || '';
-            const ctxEmail = urlParams.get('email') || '';
-            const ctxOrder = urlParams.get('orderId') || '';
-            const ctxTotal = urlParams.get('total') || '';
-            const ctxItemName = urlParams.get('itemName') || '';
-            const ctxAddress = urlParams.get('address') || '';
-
-            const msg1 = ctxItemName && ctxTotal 
-                ? `Thank you for your order! 🎉\nThe item you ordered is: ${ctxItemName}. Your PayPal invoice total will be: ${ctxTotal}.`
-                : WELCOME_MSG_1;
-
-            const msg2 = ctxAddress
-                ? `Just to confirm, is this your delivery address:\n${ctxAddress}\n...right?`
-                : WELCOME_MSG_2;
 
             // First visit
             setTimeout(() => {
