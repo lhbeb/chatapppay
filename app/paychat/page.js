@@ -55,6 +55,7 @@ function PayChatContent() {
     const [sessionId, setSessionId]       = useState(null);
     const [agentName, setAgentName]       = useState('Support Agent');
     const [agentImage, setAgentImage]     = useState(null);
+    const [agentTyping, setAgentTyping]   = useState(false);
     const [messages, setMessages]         = useState([]);
     const [inputValue, setInputValue]     = useState('');
     const [sending, setSending]           = useState(false);
@@ -86,12 +87,31 @@ function PayChatContent() {
         if (savedMessages) {
             try { setMessages(JSON.parse(savedMessages)); } catch (e) {}
         } else {
-            setMessages([{
-                id: 'welcome',
-                role: 'owner',
-                text: `Hi there! 👋 I'm ${agentData.name}. How can we help you today?`,
-                timestamp: Date.now()
-            }]);
+            setTimeout(() => {
+                setMessages([
+                    {
+                        id: 'agent-join',
+                        role: 'system',
+                        text: `✅ ${agentData.name} has joined the chat.`,
+                        timestamp: Date.now(),
+                    }
+                ]);
+                setTimeout(() => {
+                    setAgentTyping(true);
+                    setTimeout(() => {
+                        setAgentTyping(false);
+                        setMessages(prev => [
+                            ...prev,
+                            {
+                                id: 'welcome',
+                                role: 'owner',
+                                text: `Hi there! 👋 I'm ${agentData.name}. How can we help you today?`,
+                                timestamp: Date.now()
+                            }
+                        ]);
+                    }, 2800);
+                }, 900);
+            }, 500);
         }
 
 
@@ -99,7 +119,7 @@ function PayChatContent() {
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }, [messages, agentTyping]);
 
     useEffect(() => {
         if (sessionId && messages.length > 0) {
@@ -234,6 +254,7 @@ function PayChatContent() {
         visitorBubble:{ backgroundColor: themeColor, color:'white', borderBottomRightRadius:'2px' },
         ownerBubble:  { backgroundColor:'#f3f4f6', color:'#1f2937', borderBottomLeftRadius:'2px' },
         time:         { fontSize:'0.72rem', color:'#9ca3af', marginTop:'3px' },
+        typingDot:    { width: '6px', height: '6px', backgroundColor: '#9ca3af', borderRadius: '50%', display: 'inline-block', animation: 'typing 1.4s infinite ease-in-out both' },
         inputArea:    { display:'flex', flexDirection:'column', padding:'12px', backgroundColor:'white', borderTop:'1px solid #e5e7eb', gap:'8px' },
         inputRow:     { display:'flex', alignItems:'flex-end', gap:'8px' },
         attachBtn:    { backgroundColor:'transparent', color:'#6b7280', border:'none', padding:'8px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'50%', transition:'background-color 0.2s' },
@@ -248,28 +269,49 @@ function PayChatContent() {
                 <div style={s.agentInfo}>
                     <div style={s.agentName}>{agentName}</div>
                     <div style={s.agentStatus}>
-                        <span style={s.onlineDot}/> Online · {displayDomain}
+                        {agentTyping ? `${agentName} is typing...` : <><span style={s.onlineDot}/> Online · {displayDomain}</>}
                     </div>
                 </div>
             </div>
 
             <div style={s.messagesArea}>
-                {messages.map((msg) => (
-                    <div key={msg.id} style={{ ...s.msgRow, ...(msg.role === 'visitor' ? s.visitorRow : s.ownerRow) }}>
-                        {msg.role === 'owner' && <div style={s.msgAvatar}>{agentImage ? <img src={agentImage} alt={agentName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : agentName.charAt(0)}</div>}
-                        <div style={s.msgGroup}>
-                            <div style={{ ...s.bubble, ...(msg.role === 'visitor' ? s.visitorBubble : s.ownerBubble) }}>
-                                {msg.imageUrl && (
-                                    <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} />
-                                )}
+                {messages.map((msg) => {
+                    if (msg.role === 'system') {
+                        return (
+                            <div key={msg.id} style={{ textAlign: 'center', margin: '16px 0', fontSize: '0.85rem', color: '#6b7280', padding: '0 16px' }}>
                                 {msg.text}
                             </div>
-                            <span style={{ ...s.time, textAlign: msg.role === 'visitor' ? 'right' : 'left' }}>
-                                {formatTime(msg.timestamp)}
-                            </span>
+                        );
+                    }
+                    return (
+                        <div key={msg.id} style={{ ...s.msgRow, ...(msg.role === 'visitor' ? s.visitorRow : s.ownerRow) }}>
+                            {msg.role === 'owner' && <div style={s.msgAvatar}>{agentImage ? <img src={agentImage} alt={agentName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : agentName.charAt(0)}</div>}
+                            <div style={s.msgGroup}>
+                                <div style={{ ...s.bubble, ...(msg.role === 'visitor' ? s.visitorBubble : s.ownerBubble) }}>
+                                    {msg.imageUrl && (
+                                        <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} />
+                                    )}
+                                    {msg.text}
+                                </div>
+                                <span style={{ ...s.time, textAlign: msg.role === 'visitor' ? 'right' : 'left' }}>
+                                    {formatTime(msg.timestamp)}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+                {agentTyping && (
+                    <div style={{ ...s.msgRow, ...s.ownerRow }}>
+                        <div style={s.msgAvatar}>{agentImage ? <img src={agentImage} alt={agentName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : agentName.charAt(0)}</div>
+                        <div style={s.msgGroup}>
+                            <div style={{ ...s.bubble, ...s.ownerBubble, display: 'flex', alignItems: 'center', gap: '4px', padding: '12px 16px' }}>
+                                <span style={s.typingDot} />
+                                <span style={{ ...s.typingDot, animationDelay: '0.2s' }} />
+                                <span style={{ ...s.typingDot, animationDelay: '0.4s' }} />
+                            </div>
                         </div>
                     </div>
-                ))}
+                )}
                 <div ref={messagesEndRef} />
             </div>
 

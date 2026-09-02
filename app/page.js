@@ -199,19 +199,38 @@ export default function ChatPage() {
                 setMessages(parsed);
             } catch { }
         } else {
-            // First visit — show first welcome message immediately
-            const now = Date.now();
-            setMessages([{ id: 'welcome-1', role: 'owner', text: WELCOME_MSG_1, timestamp: now }]);
-
-            // Show typing indicator then deliver second message after 3 seconds
-            setIsTyping(true);
+            // First visit
             setTimeout(() => {
-                setIsTyping(false);
-                setMessages(prev => [
-                    ...prev,
-                    { id: 'welcome-2', role: 'owner', text: WELCOME_MSG_2, timestamp: Date.now() },
+                setMessages([
+                    {
+                        id: 'agent-join',
+                        role: 'system',
+                        text: `✅ ${agentData.name} has joined the chat.`,
+                        timestamp: Date.now(),
+                    }
                 ]);
-            }, 3000);
+                setTimeout(() => {
+                    setIsTyping(true);
+                    setTimeout(() => {
+                        setIsTyping(false);
+                        setMessages(prev => [
+                            ...prev,
+                            { id: 'welcome-1', role: 'owner', text: WELCOME_MSG_1, timestamp: Date.now() }
+                        ]);
+
+                        setTimeout(() => {
+                            setIsTyping(true);
+                            setTimeout(() => {
+                                setIsTyping(false);
+                                setMessages(prev => [
+                                    ...prev,
+                                    { id: 'welcome-2', role: 'owner', text: WELCOME_MSG_2, timestamp: Date.now() },
+                                ]);
+                            }, 2800);
+                        }, 900);
+                    }, 2800);
+                }, 900);
+            }, 500);
 
             // Read order context from URL params
             const ctxName = urlParams.get('name') || '';
@@ -414,24 +433,33 @@ export default function ChatPage() {
 
                 {/* Messages */}
                 <div className="messages-area">
-                    {messages.map((msg) => (
-                        <div key={msg.id} className={`message-row ${msg.role}`}>
-                            {msg.role === 'owner' && (
-                                <div className="owner-avatar-sm">
-                                    {agentImage ? <img src={agentImage} alt={agentName} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} /> : agentName.charAt(0)}
-                                </div>
-                            )}
-                            <div className="msg-wrapper">
-                                <div className={`bubble ${msg.role === 'visitor' ? 'visitor-bubble' : 'owner-bubble'}`}>
-                                    {msg.imageUrl && (
-                                        <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} />
-                                    )}
+                    {messages.map((msg) => {
+                        if (msg.role === 'system') {
+                            return (
+                                <div key={msg.id} style={{ textAlign: 'center', margin: '16px 0', fontSize: '0.85rem', color: '#6b7280', padding: '0 16px' }}>
                                     {msg.text}
                                 </div>
-                                <span className="bubble-time">{formatTime(msg.timestamp)}</span>
+                            );
+                        }
+                        return (
+                            <div key={msg.id} className={`message-row ${msg.role}`}>
+                                {msg.role === 'owner' && (
+                                    <div className="owner-avatar-sm">
+                                        {agentImage ? <img src={agentImage} alt={agentName} style={{ borderRadius: '50%', objectFit: 'cover', width: '30px', height: '30px' }} /> : agentName.charAt(0)}
+                                    </div>
+                                )}
+                                <div className="msg-wrapper">
+                                    <div className={`bubble ${msg.role === 'visitor' ? 'visitor-bubble' : 'owner-bubble'}`}>
+                                        {msg.imageUrl && (
+                                            <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: msg.text ? '8px' : '0' }} />
+                                        )}
+                                        {msg.text}
+                                    </div>
+                                    <span className="bubble-time">{formatTime(msg.timestamp)}</span>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {isTyping && (
                         <div className="typing-row">
