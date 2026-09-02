@@ -39,8 +39,7 @@ function getOrCreateAgentName(sessionId) {
     }
 }
 
-const WELCOME_MSG_1 = `Thank you for your order! 🎉\nWe've reserved your item and are preparing your PayPal invoice now.`;
-const WELCOME_MSG_2 = `Before we send it, just let us know if you're ready to proceed with the payment.\nWe'll include all order details in the invoice for your review.`;
+// Old messages removed, dynamic generation used instead
 
 const KNOWN_BRANDS = {
     'deeldepot': 'DeelDepot',
@@ -185,13 +184,9 @@ export default function ChatPage() {
         const ctxItemName = urlParams.get('itemName') || '';
         const ctxAddress = urlParams.get('address') || '';
 
-        const msg1 = ctxItemName && ctxTotal 
-            ? `Thank you for your order! 🎉\nThe item you ordered is: ${ctxItemName}. Your PayPal invoice total will be: ${ctxTotal}.`
-            : WELCOME_MSG_1;
+        const msg1 = `Thank you for your order! 🎉\nThe item you ordered is: ${ctxItemName || 'the item selected'}. Your PayPal invoice total will be: ${ctxTotal || 'calculated shortly'}.`;
 
-        const msg2 = ctxAddress
-            ? `Just to confirm, is this your delivery address:\n${ctxAddress}\n...right?`
-            : WELCOME_MSG_2;
+        const msg2 = `Just to confirm, is this your delivery address:\n${ctxAddress || 'the address provided during checkout'}\n...right?`;
 
         if (savedMessages) {
             try {
